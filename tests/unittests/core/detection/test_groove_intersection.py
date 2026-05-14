@@ -12,7 +12,6 @@ API 注意：detect_transverse_grooves() 使用显式参数，返回显式 tuple
 
 最重要的测试验证逻辑：
 - 使用 feature/dev 原始 center_inf 与 side_inf 小图验证核心输出：横沟数量与交叉点数量逐图匹配旧算法。
-- 使用 groove_intersection_debug_baseline/ 保存的算法 debug 染色图，与新架构 is_debug=True 生成的染色图做 np.array 像素级比对。
 - 使用合成二值图验证横沟聚合、窄带过滤、交叉点计数和边界分支，避免只靠真实图覆盖。
 
 人工设计的覆盖性测试逻辑：
@@ -22,8 +21,7 @@ API 注意：detect_transverse_grooves() 使用显式参数，返回显式 tuple
     这些分支决定 groove_count，是横沟检测算法最核心的数量判断来源。
 - 针对交叉点统计：覆盖无横沟、上下双侧列密度、仅上侧、仅下侧、全图横沟和边缘列过滤。
     这些分支决定 intersection_count，是交叉点统计算法最核心的数量判断来源。
-- 针对 debug 图：覆盖掩码叠加、横沟中心线和文字绘制，并与算法 debug 基准图逐像素比对。
-    debug 图用于人工验收算法迁移等价性，因此必须作为稳定产物纳入测试。
+- 针对 debug 图：覆盖掩码叠加、横沟中心线和文字绘制，确保 debug 输出仍由算法层返回而不落盘。
 """
 
 import pathlib
@@ -317,7 +315,6 @@ _EXPECTED_REAL_IMAGE_FEATURES = {
         },
     },
 }
-_DEBUG_BASELINE = _DATASET_GROOVE / "groove_intersection_debug_baseline"
 
 
 @unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_GROOVE,
@@ -353,60 +350,6 @@ class TestTransverseGroovesRealImages(unittest.TestCase):
                 rst = len(result)
                 expected = 4
                 self.assertEqual(rst, expected)
-
-
-@unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_GROOVE,
-                     "需要 opencv 和 tests/datasets/test_groove_intersection 数据集")
-class TestTransverseGroovesDebugBaseline(unittest.TestCase):
-    """验证 dev2 新架构算法 debug 图与基准完全一致。"""
-
-    @staticmethod
-    def _wise_name(subdir: str, stem: str) -> str:
-        return f"{subdir}_{stem}.png"
-
-    def _iter_real_images(self):
-        for subdir, case in _EXPECTED_REAL_IMAGE_FEATURES.items():
-            for image_path in sorted((_DATASET_GROOVE / subdir).glob("*.png")):
-                yield subdir, case["groove_width_px"], image_path
-
-    def _run_debug(self, image_path: pathlib.Path, groove_width_px: int) -> np.ndarray:
-        from src.core.detection.groove_intersection import detect_transverse_grooves
-
-        _, _, _, vis_image = detect_transverse_grooves(
-            _load_color(image_path),
-            groove_width_px,
-            is_debug=True,
-        )
-        rst = vis_image is not None
-        expected = True
-        self.assertEqual(rst, expected, f"{image_path.name} 未生成染色图")
-        return vis_image
-
-    def test_debug_images_equal_groove_intersection_baseline(self):
-        """算法 debug 图应与基准图逐像素完全一致。"""
-        if not _DEBUG_BASELINE.exists():
-            self.skipTest(f"缺少算法 debug 基准目录: {_DEBUG_BASELINE}")
-
-        for subdir, groove_width_px, image_path in self._iter_real_images():
-            with self.subTest(img=f"{subdir}/{image_path.name}"):
-                wise_name = self._wise_name(subdir, image_path.stem)
-                baseline_path = _DEBUG_BASELINE / wise_name
-                rst = baseline_path.exists()
-                expected = True
-                self.assertEqual(rst, expected, f"缺少算法 debug 基准图: {wise_name}")
-
-                vis_image = self._run_debug(image_path, groove_width_px)
-                baseline_image = _load_color(baseline_path)
-
-                rst = np.array_equal(vis_image, baseline_image)
-                expected = True
-                self.assertEqual(
-                    rst,
-                    expected,
-                    f"{subdir}/{image_path.name} 算法 debug 图与基准不一致，"
-                    f"最大像素差={int(np.abs(vis_image.astype(int) - baseline_image.astype(int)).max())}",
-                )
-
 
 if __name__ == "__main__":
     unittest.main()

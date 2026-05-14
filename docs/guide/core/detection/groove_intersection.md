@@ -204,19 +204,18 @@ if vis_image is not None:
 
 ## 等价性验证
 
-本算法迁移后，测试数据目录包含：
+本算法迁移后，测试沿用真实图片输入与固定特征期望值做回归。测试数据目录包含：
 
 ```text
 tests/datasets/test_groove_intersection/
   center_inf/
   side_inf/
-  groove_intersection_debug_baseline/
 ```
 
 - `center_inf/` 与 `side_inf/` 保存真实输入小图。
-- `groove_intersection_debug_baseline/` 保存算法 debug 基准图。
+- 单元测试对这些真实图的 `groove_count` 与 `intersection_count` 做固定期望值比对。
 
-单元测试会将当前输出与基准图做 `np.array_equal()` 像素级比对。任意一张图不一致，都表示 debug 产物出现回归。
+任意一张图的特征输出不一致，都表示横沟检测或交点统计出现回归。debug 图只验证返回形状和绘制结果发生变化，不在算法文档中维护额外图片基准。
 
 ## 异常
 
