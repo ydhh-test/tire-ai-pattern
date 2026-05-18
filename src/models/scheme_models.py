@@ -111,39 +111,69 @@ class Symmetry1(StitchingTemplate):
     ]
 
 
-class _Concatenate0(StitchingTemplate):
-    """拼接模板：_concatenate_0 - 用于两张图像的拼接（供内部使用）"""
+# class _Concatenate0(StitchingTemplate):
+#     """拼接模板：_concatenate_0 - 用于两张图像的拼接（供内部使用）"""
 
-    name: StitchingSchemeName = StitchingSchemeName._CONCATENATE_0
-    description: str = "两张图合并为1张，仅供内部使用"
-    rib_number: int = 2
-    mode: str = "concatenate"
-    rib_template_list: List[RibTemplate] = [
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.RIGHT_1_3)),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.LEFT_1_3)),
-    ]
-    post_processing: Tuple[RibOperation, ...] = (RibOperation._RESIZE_AS_FIRST_RIB,)
+#     name: StitchingSchemeName = StitchingSchemeName._CONCATENATE_0
+#     description: str = "两张图合并为1张，仅供内部使用"
+#     rib_number: int = 2
+#     mode: str = "concatenate"
+#     rib_template_list: List[RibTemplate] = [
+#         RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
+#                     operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.RIGHT_1_3)),
+#         RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib4",
+#                     operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.LEFT_1_3)),
+#     ]
+#     post_processing: Tuple[RibOperation, ...] = (RibOperation._RESIZE_AS_FIRST_RIB,)
 
+
+# class Continuity0(StitchingTemplate):
+#     """拼接模板：continuity_0 - RIB2-RIB3-RIB4中间三条全连续，边缘独立"""
+
+#     name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_0
+#     description: str = "RIB2-RIB3-RIB4中间全连续，边缘独立"
+#     rib_number: int = 5
+#     mode: str = "continuity"
+#     matching_rule_names: Tuple[str, ...] = tuple()
+#     rib_template_list: List[RibTemplate] = [
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.NONE,), rib_name="rib1"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.LEFT_2_3), rib_name="rib2"),
+#         RibTemplate(source_type=SourceTypeEnum.CONCAT, sub_template_name=StitchingSchemeName._CONCATENATE_0, rib_name="rib3"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.RIGHT_2_3), rib_name="rib4"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.NONE,), rib_name="rib5"),
+#     ]
 
 class Continuity0(StitchingTemplate):
-    """拼接模板：continuity_0 - RIB2-RIB3-RIB4中间三条全连续，边缘独立"""
+    """无操作模版，不修改对称性方案"""
 
     name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_0
-    description: str = "RIB2-RIB3-RIB4中间全连续，边缘独立"
+    description: str = "无操作模版，不修改对称性方案"
     rib_number: int = 5
     mode: str = "continuity"
+    matching_rule_names: Tuple[str, ...] = tuple()
     rib_template_list: List[RibTemplate] = [
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib1",
-                    operation_template=(RibOperation.NONE,), rib_name="rib1"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.LEFT_2_3), rib_name="rib2"),
-        RibTemplate(sub_template_name=StitchingSchemeName._CONCATENATE_0, rib_name="rib3"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib4",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.RIGHT_2_3), rib_name="rib4"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib5",
-                    operation_template=(RibOperation.NONE,), rib_name="rib5"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib1"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib2"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib3"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib4"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib5"),
+    ]
+
+
+class Continuity1(StitchingTemplate):
+    """拼接模板：continuity_0 - RIB2-RIB3连续，边缘独立"""
+
+    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_1
+    description: str = "RIB2-RIB3连续，边缘独立"
+    rib_number: int = 5
+    mode: str = "continuity"
+    matching_rule_names: Tuple[str, ...] = tuple()
+    rib_template_list: List[RibTemplate] = [
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib1", rib_name="rib1"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT), inherit_from="rib2", rib_name="rib2"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.RIGHT), inherit_from="rib2", rib_name="rib3"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib4", rib_name="rib4"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib5", rib_name="rib5"),
     ]
 
 
