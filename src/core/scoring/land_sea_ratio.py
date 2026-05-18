@@ -11,17 +11,16 @@
 - is_debug=True 时返回带颜色叠加标注的可视化图像，由调用方决定是否保存。
 """
 
-import logging
 from typing import Optional, Tuple
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
 
 from src.common.exceptions import InputDataError, RuntimeProcessError
+from src.utils.logger import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 _VIS_NAME = "land_sea_ratio"
 
@@ -162,9 +161,10 @@ def _draw_debug_image(
     green_masked = cv2.bitwise_and(green_overlay, green_overlay, mask=gray_mask)
     vis = cv2.addWeighted(vis, 1.0, green_masked, 0.5, 0)
 
-    # 自适应字体大小（映射到 PIL 字号）
+    # 自适应字体大小
     height, width = vis.shape[:2]
-    font_size = max(16, int(min(width, height) / 20))
+    font_scale = min(width, height) / 500
+    font_scale = max(0.5, min(2.0, font_scale))
 
     # 自适应文字颜色（根据左上角区域亮度）
     roi_h = max(1, min(100, height // 10))
@@ -172,34 +172,17 @@ def _draw_debug_image(
     avg_brightness = float(np.mean(gray[:roi_h, :roi_w]))
     text_color = (0, 0, 0) if avg_brightness > 128 else (255, 255, 255)
 
-    vis = _put_chinese_text(vis, f"海陆比：{ratio_percent:.2f}%", (10, 10), font_size, text_color)
+    y_offset = int(30 * font_scale)
+    thickness = max(1, int(2 * font_scale))
+
+    cv2.putText(
+        vis,
+        f"LSR: {ratio_percent:.2f}%",
+        (10, y_offset),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        font_scale,
+        text_color,
+        thickness,
+    )
 
     return vis
-
-
-def _put_chinese_text(
-    bgr_image: np.ndarray,
-    text: str,
-    position: tuple,
-    font_size: int,
-    color_bgr: tuple,
-) -> np.ndarray:
-    """用 PIL 在 BGR 图像上绘制中文文字，避免 cv2.putText 中文乱码。"""
-    rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-    pil_image = Image.fromarray(rgb_image)
-    draw = ImageDraw.Draw(pil_image)
-
-    try:
-        font = ImageFont.truetype("simhei.ttf", font_size)
-    except (IOError, OSError):
-        try:
-            font = ImageFont.truetype("C:/Windows/Fonts/simhei.ttf", font_size)
-        except (IOError, OSError):
-            font = ImageFont.load_default()
-
-    # PIL 颜色为 RGB
-    color_rgb = (color_bgr[2], color_bgr[1], color_bgr[0])
-    draw.text(position, text, font=font, fill=color_rgb)
-
-    result = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    return result
