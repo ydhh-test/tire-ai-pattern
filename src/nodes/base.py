@@ -31,6 +31,9 @@ from src.models.rule_models import (
     Rule19Config,
     Rule21Config,
     Rule22Config,
+    Rule100Config,
+    Rule101Config,
+    Rule102Config,
 )
 from src.rules.runner import RuleRunner
 
@@ -52,6 +55,9 @@ STITCH_SCHEME_GENERATOR_CONFIGS: list[type[BaseRuleConfig]] = [
     Rule16Config,
     Rule17Config,
     Rule19Config,
+    Rule100Config,
+    Rule101Config,
+    Rule102Config,
 ]
 
 BIG_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = [
@@ -141,7 +147,7 @@ def recalculate_current_score(evaluation: ImageEvaluation) -> None:
 
     evaluation.current_score = sum(
         rule.score.score for rule in evaluation.rules
-        if rule.score is not None
+        if rule.score is not None and rule.score.score is not None
     )
 
 

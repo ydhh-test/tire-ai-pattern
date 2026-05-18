@@ -5,6 +5,8 @@
 #   - 注册机制（_FEATURE_REGISTRY / _SCORE_REGISTRY / 装饰器）
 #   - BaseRuleConfig / BaseRuleFeature / BaseRuleScore（基类）
 #   - Rule1-22Config / Rule1-22Feature / Rule1-22Score（22个规则）
+#   - RibSizeItem / GrooveSizeItem / DecorationItem（Rule100-102 辅助模型）
+#   - Rule100-102Config / Rule100-102Feature / Rule100-102Score（3个纯配置型规则）
 #
 # 注意：
 #   - Feature 类必须使用 @register_rule_feature 装饰器
@@ -118,8 +120,7 @@ class BaseRuleConfig(BaseModel):
     """
 
     description: str = Field(description="规则描述")
-    max_score: int = Field(ge=0, description="最大可得分")
-
+    max_score: Optional[int] = Field(default=None, ge=0, description="最大可得分，None表示非打分规则")
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
@@ -155,7 +156,7 @@ class BaseRuleScore(BaseModel):
     name属性自动从类名提取（如Rule8Score → rule8）。
     """
 
-    score: int = Field(description="得分")
+    score: Optional[int] = Field(default=None, description="得分，None表示不参与评分")
 
     @property
     def name(self) -> str:
@@ -716,4 +717,89 @@ class Rule21Score(BaseRuleScore):
 @register_rule_score
 class Rule22Score(BaseRuleScore):
     """Rule22（图片分辨率）评分，已被融入"""
+    pass
+
+
+# ============================================================
+# 第十八部分：Rule100-102 辅助 Item 模型
+# ============================================================
+
+class RibSizeItem(BaseModel):
+    """单个 RIB 的尺寸配置"""
+    rib_name: str = Field(description="RIB名称，如 rib1、rib2")
+    num_pitchs: int = Field(ge=1, description="节距数量")
+    rib_width: int = Field(ge=1, description="纵向图宽度(像素)")
+    rib_height: int = Field(ge=1, description="纵向图高度(像素)")
+
+
+class GrooveSizeItem(BaseModel):
+    """单个主沟的尺寸配置"""
+    groove_width: int = Field(ge=1, description="主沟宽度(像素)")
+    groove_height: int = Field(ge=1, description="主沟高度(像素)")
+
+
+class DecorationItem(BaseModel):
+    """单个装饰的尺寸与透明度配置"""
+    position: str = Field(description="装饰位置：left / right")
+    decoration_width: int = Field(ge=1, description="装饰宽度(像素)")
+    decoration_height: int = Field(ge=1, description="装饰高度(像素)")
+    decoration_opacity: int = Field(ge=0, le=255, description="装饰透明度(0-255)")
+
+
+# ============================================================
+# 第十九部分：Rule100-102 纯配置型规则
+# ============================================================
+
+class Rule100Config(BaseRuleConfig):
+    """Rule100：RIB 节距/尺寸配置"""
+    description: str = "RIB 节距与尺寸配置"
+    rib_number: int = Field(ge=1, description="RIB 数量")
+    rib_sizes: List[RibSizeItem] = Field(min_length=1, description="每个RIB的尺寸配置列表")
+
+
+class Rule101Config(BaseRuleConfig):
+    """Rule101：主沟尺寸配置"""
+    description: str = "主沟尺寸配置"
+    groove_sizes: List[GrooveSizeItem] = Field(min_length=1, description="每个主沟的尺寸配置列表")
+
+
+class Rule102Config(BaseRuleConfig):
+    """Rule102：装饰边框配置"""
+    description: str = "装饰边框尺寸与透明度配置"
+    decorations: List[DecorationItem] = Field(min_length=1, description="左右装饰配置列表")
+
+
+@register_rule_feature
+class Rule100Feature(BaseRuleFeature):
+    """Rule100 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_feature
+class Rule101Feature(BaseRuleFeature):
+    """Rule101 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_feature
+class Rule102Feature(BaseRuleFeature):
+    """Rule102 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_score
+class Rule100Score(BaseRuleScore):
+    """Rule100 评分（纯配置型，无评分）"""
+    pass
+
+
+@register_rule_score
+class Rule101Score(BaseRuleScore):
+    """Rule101 评分（纯配置型，无评分）"""
+    pass
+
+
+@register_rule_score
+class Rule102Score(BaseRuleScore):
+    """Rule102 评分（纯配置型，无评分）"""
     pass
