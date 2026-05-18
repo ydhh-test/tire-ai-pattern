@@ -16,6 +16,7 @@
 
 from typing import Optional, List, Dict, Type
 from pydantic import BaseModel, Field
+from .enums import RuleTypeEnum
 
 
 # ============================================================
@@ -121,6 +122,7 @@ class BaseRuleConfig(BaseModel):
 
     description: str = Field(description="规则描述")
     max_score: Optional[int] = Field(default=None, ge=0, description="最大可得分，None表示非打分规则")
+    rule_type: RuleTypeEnum = Field(description="规则类型枚举")
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
