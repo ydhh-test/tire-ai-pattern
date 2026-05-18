@@ -29,7 +29,7 @@ class TireStruct(BaseModel):
     # 小图列表
     # 👉 入参：仅Pipeline-1使用
     # 👉 出参：仅Pipeline-4输出
-    small_images: List[SmallImage] = Field(default_factory=list, description="小图列表")
+    small_images: List[SmallImage] = Field(default_factory=list, description="小图列表，含特征/评分")
 
     # 大图（包含血缘、特征、评分）
     # 👉 入参：Pipeline-2 / Pipeline-3 / Pipeline-4使用

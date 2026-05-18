@@ -20,6 +20,12 @@ class RegionEnum(str, Enum):
     SIDE = "side"      # 侧边区域
     CENTER = "center"  # 中心区域
 
+class RuleTypeEnum(str, Enum):
+    """规则类型枚举"""
+    BIG_IMAGE = "big_image"      # 大图
+    SMALL_IMAGE = "small_image"  # 小图
+    DEFAULT = "default"  # 特例（留给rule20、22）
+    PROCESSING = "processing"  # 图像过程
 
 class SourceTypeEnum(str, Enum):
     """数据来源类型枚举"""

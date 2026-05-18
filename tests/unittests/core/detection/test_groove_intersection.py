@@ -8,22 +8,20 @@ API 注意：detect_transverse_grooves() 使用显式参数，返回显式 tuple
 主要变更（相对 dev 分支）：
 - import 路径：algorithms.detection.* -> src.core.detection.*
 - 输入输出：dict 进出 -> 显式参数和显式 tuple 返回
-- 算法层不返回 score，不保存文件，不接收 task_id 或输出目录
+- 算法层不返回 score，不保存文件，不接收输出目录
 
 最重要的测试验证逻辑：
 - 使用 feature/dev 原始 center_inf 与 side_inf 小图验证核心输出：横沟数量与交叉点数量逐图匹配旧算法。
-- 使用 wise_image_dev1/ 保存的老架构染色图，与新架构 is_debug=True 生成的染色图做 np.array 像素级比对。
 - 使用合成二值图验证横沟聚合、窄带过滤、交叉点计数和边界分支，避免只靠真实图覆盖。
 
 人工设计的覆盖性测试逻辑：
 - 针对公开 API：覆盖 None、非 ndarray、灰度图、非法 groove_width_px、debug 输出和异常包装。
     这些分支对应算法层对外边界，能防止重新退回 dict 错误返回或路径保存行为。
 - 针对横沟提取：覆盖无热点行、单横沟、多横沟、间隔合并和窄带过滤。
-    这些分支决定 Rule 8 的 groove_count，是算法最核心的数量判断来源。
+    这些分支决定 groove_count，是横沟检测算法最核心的数量判断来源。
 - 针对交叉点统计：覆盖无横沟、上下双侧列密度、仅上侧、仅下侧、全图横沟和边缘列过滤。
-    这些分支决定 Rule 14 后续使用的 intersection_count，虽然本文件只迁移算法层，也要保证特征等价。
-- 针对 debug 图：覆盖旧架构兼容状态、掩码叠加、横沟中心线和文字绘制，并与 dev1 基准图逐像素比对。
-    debug 图用于人工验收算法迁移等价性，因此必须作为稳定产物纳入测试。
+    这些分支决定 intersection_count，是交叉点统计算法最核心的数量判断来源。
+- 针对 debug 图：覆盖掩码叠加、横沟中心线和检测结果文字绘制，并用 dev2 基准图做逐像素稳定性比对。
 """
 
 import pathlib
@@ -103,31 +101,26 @@ class TestTransverseGroovesApi(unittest.TestCase):
         result = self._run(_make_bgr_image())
         groove_count, intersection_count, vis_name, vis_image = result
 
-        expected_len = 4
-        expected_vis_name = ""
-        self.assertEqual(len(result), expected_len)
-        self.assertIsInstance(groove_count, int)
-        self.assertIsInstance(intersection_count, int)
-        self.assertEqual(vis_name, expected_vis_name)
-        self.assertIsNone(vis_image)
+        rst = (len(result), isinstance(groove_count, int), isinstance(intersection_count, int), vis_name, vis_image)
+        expected = (4, True, True, "", None)
+        self.assertEqual(rst, expected)
 
     def test_debug_returns_visualization_without_saving(self):
         image = _make_bgr_image()
         _, _, vis_name, vis_image = self._run(image, is_debug=True)
 
-        expected_vis_name = "groove_intersection"
-        expected_shape = image.shape
-        self.assertEqual(vis_name, expected_vis_name)
-        self.assertIsNotNone(vis_image)
-        self.assertEqual(vis_image.shape, expected_shape)
+        rst = (vis_name, vis_image is not None, vis_image.shape if vis_image is not None else None)
+        expected = ("groove_intersections", True, image.shape)
+        self.assertEqual(rst, expected)
 
     def test_groove_width_px_affects_detection(self):
         image = _make_bgr_image()
         result_25 = self._run(image, groove_width_px=25)[:2]
         result_13 = self._run(image, groove_width_px=13)[:2]
 
-        self.assertIsInstance(result_25[0], int)
-        self.assertIsInstance(result_13[0], int)
+        rst = (isinstance(result_25[0], int), isinstance(result_13[0], int))
+        expected = (True, True)
+        self.assertEqual(rst, expected)
 
     def test_processing_error_is_wrapped(self):
         import src.core.detection.groove_intersection as groove_intersection
@@ -165,21 +158,20 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
 
         single = _make_binary_mask(bands=[(50, 80)])
         positions, count, _ = _analyze_grooves(single, groove_width_px=25, image_width=128)
-        expected_count = 1
-        expected_len = 1
-        expected_position_min = 50
-        expected_position_max = 79
-        self.assertEqual(count, expected_count)
-        self.assertEqual(len(positions), expected_len)
-        self.assertGreaterEqual(positions[0], expected_position_min)
-        self.assertLessEqual(positions[0], expected_position_max)
+        rst = (
+            count,
+            len(positions),
+            positions[0] >= 50,
+            positions[0] <= 79,
+        )
+        expected = (1, 1, True, True)
+        self.assertEqual(rst, expected)
 
         multiple = _make_binary_mask(bands=[(20, 46), (82, 108)])
         positions, count, _ = _analyze_grooves(multiple, groove_width_px=25, image_width=128)
-        expected_count = 2
-        expected_sorted = sorted(positions)
-        self.assertEqual(count, expected_count)
-        self.assertEqual(positions, expected_sorted)
+        rst = (count, positions)
+        expected = (2, sorted(positions))
+        self.assertEqual(rst, expected)
 
     def test_analyze_grooves_merges_small_row_gap(self):
         from src.core.detection.groove_intersection import _analyze_grooves
@@ -286,27 +278,8 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
         binary[4:12, 7:9] = 255
         skeleton = _skeletonize(binary)
 
-        expected_shape = binary.shape
-        self.assertEqual(skeleton.shape, expected_shape)
-        self.assertGreater(int(skeleton.sum()), 0)
-
-    def test_legacy_debug_status_branches(self):
-        from src.core.detection.groove_intersection import _legacy_debug_status
-
-        rst = _legacy_debug_status(1, 2)
-        expected = (True, True, 6.0)
-        self.assertEqual(rst, expected)
-
-        rst = _legacy_debug_status(0, 3)
-        expected = (False, False, 0.0)
-        self.assertEqual(rst, expected)
-
-        rst = _legacy_debug_status(0, 0)
-        expected = (False, True, 2.0)
-        self.assertEqual(rst, expected)
-
-        rst = _legacy_debug_status(2, 0)
-        expected = (False, True, 2.0)
+        rst = (skeleton.shape, int(skeleton.sum()) > 0)
+        expected = (binary.shape, True)
         self.assertEqual(rst, expected)
 
     def test_draw_debug_image_adds_overlay_and_text(self):
@@ -321,19 +294,15 @@ class TestTransverseGroovesInternalBranches(unittest.TestCase):
             [14.5],
             1,
             0,
-            True,
-            True,
-            6.0,
         )
 
-        expected_shape = image.shape
-        self.assertEqual(debug_image.shape, expected_shape)
-        self.assertFalse(np.array_equal(debug_image, image))
+        rst = (debug_image.shape, np.array_equal(debug_image, image))
+        expected = (image.shape, False)
+        self.assertEqual(rst, expected)
 
-
-_DATASET_GROOVE = _ROOT / "tests" / "datasets" / "test_groove_intersection"
+_DATASET_GROOVE = pathlib.Path("tests/datasets/test_groove_intersection")
 _HAS_DATASET_GROOVE = (_DATASET_GROOVE / "center_inf").exists()
-_EXPECTED_REAL_IMAGE_FEATURES = {
+_EXPECTED_REAL_IMAGE_RESULTS = {
     "center_inf": {
         "groove_width_px": 25,
         "expected": {
@@ -349,9 +318,11 @@ _EXPECTED_REAL_IMAGE_FEATURES = {
         },
     },
 }
-_WISE_IMAGE_DEV1 = _DATASET_GROOVE / "wise_image_dev1"
-_WISE_IMAGE_DEV2 = _ROOT / ".results" / "wise_image_dev2" / "test_groove_intersection"
-_HAS_WISE_DEV1 = bool(list(_WISE_IMAGE_DEV1.glob("*.png"))) if _WISE_IMAGE_DEV1.exists() else False
+_WISE_IMAGE_DEV2_BASELINE = _DATASET_GROOVE / "wise_image_dev2"
+_GENERATED_WISE_IMAGE_DEV2 = _ROOT / ".results" / "wise_image_dev2" / "test_groove_intersection"
+_HAS_WISE_DEV2_BASELINE = (
+    bool(list(_WISE_IMAGE_DEV2_BASELINE.glob("*.png"))) if _WISE_IMAGE_DEV2_BASELINE.exists() else False
+)
 
 
 @unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_GROOVE,
@@ -360,7 +331,7 @@ class TestTransverseGroovesRealImages(unittest.TestCase):
     """真实原图输入测试。"""
 
     def _iter_real_images(self):
-        for subdir, case in _EXPECTED_REAL_IMAGE_FEATURES.items():
+        for subdir, case in _EXPECTED_REAL_IMAGE_RESULTS.items():
             for image_path in sorted((_DATASET_GROOVE / subdir).glob("*.png")):
                 yield subdir, case["groove_width_px"], image_path
 
@@ -374,32 +345,32 @@ class TestTransverseGroovesRealImages(unittest.TestCase):
         for subdir, groove_width_px, image_path in self._iter_real_images():
             with self.subTest(img=f"{subdir}/{image_path.name}"):
                 groove_count, intersection_count, vis_name, vis_image = self._run(image_path, groove_width_px)
-                expected = _EXPECTED_REAL_IMAGE_FEATURES[subdir]["expected"][image_path.name]
-                expected_vis_name = ""
-                self.assertEqual((groove_count, intersection_count), expected)
-                self.assertEqual(vis_name, expected_vis_name)
-                self.assertIsNone(vis_image)
+                expected = _EXPECTED_REAL_IMAGE_RESULTS[subdir]["expected"][image_path.name]
+                rst = (groove_count, intersection_count, vis_name, vis_image)
+                expected = (*expected, "", None)
+                self.assertEqual(rst, expected)
 
     def test_real_images_output_has_no_score(self):
-        """core 层真实图片输出只包含特征和可选 debug 图，不包含 score"""
+        """core 层真实图片输出只包含检测结果和可选 debug 图，不包含 score"""
         for subdir, groove_width_px, image_path in self._iter_real_images():
             with self.subTest(img=f"{subdir}/{image_path.name}"):
                 result = self._run(image_path, groove_width_px)
-                expected_len = 4
-                self.assertEqual(len(result), expected_len)
+                rst = len(result)
+                expected = 4
+                self.assertEqual(rst, expected)
 
 
 @unittest.skipUnless(_HAS_CV2 and _HAS_DATASET_GROOVE,
                      "需要 opencv 和 tests/datasets/test_groove_intersection 数据集")
 class TestTransverseGroovesVisualizationEquivalence(unittest.TestCase):
-    """验证 dev2 新架构 debug 染色图与 dev1 老架构完全一致。"""
+    """验证 dev2 debug 染色图与 dev2 基准图完全一致。"""
 
     @staticmethod
     def _wise_name(subdir: str, stem: str) -> str:
         return f"{subdir}_{stem}.png"
 
     def _iter_real_images(self):
-        for subdir, case in _EXPECTED_REAL_IMAGE_FEATURES.items():
+        for subdir, case in _EXPECTED_REAL_IMAGE_RESULTS.items():
             for image_path in sorted((_DATASET_GROOVE / subdir).glob("*.png")):
                 yield subdir, case["groove_width_px"], image_path
 
@@ -425,26 +396,26 @@ class TestTransverseGroovesVisualizationEquivalence(unittest.TestCase):
         for subdir, groove_width_px, image_path in self._iter_real_images():
             with self.subTest(img=f"{subdir}/{image_path.name}"):
                 vis_image = self._run_debug(image_path, groove_width_px)
-                save_path = _WISE_IMAGE_DEV2 / self._wise_name(subdir, image_path.stem)
+                save_path = _GENERATED_WISE_IMAGE_DEV2 / self._wise_name(subdir, image_path.stem)
                 self._save_image(save_path, vis_image)
 
-    @unittest.skipUnless(_HAS_WISE_DEV1,
-                         "wise_image_dev1/ 为空，跳过等价性比对")
-    def test_dev2_visualizations_equal_dev1(self):
-        """dev2 染色图应与 dev1 基准图逐像素完全一致"""
+    @unittest.skipUnless(_HAS_WISE_DEV2_BASELINE,
+                         "wise_image_dev2/ 为空，跳过稳定性比对")
+    def test_dev2_visualizations_equal_dev2_baseline(self):
+        """dev2 染色图应与 dev2 基准图逐像素完全一致"""
         for subdir, groove_width_px, image_path in self._iter_real_images():
             with self.subTest(img=f"{subdir}/{image_path.name}"):
                 wise_name = self._wise_name(subdir, image_path.stem)
-                dev1_path = _WISE_IMAGE_DEV1 / wise_name
-                self.assertTrue(dev1_path.exists(), f"缺少 dev1 基准图: {wise_name}")
+                dev2_path = _WISE_IMAGE_DEV2_BASELINE / wise_name
+                self.assertTrue(dev2_path.exists(), f"缺少 dev2 基准图: {wise_name}")
 
                 vis_image = self._run_debug(image_path, groove_width_px)
-                dev1_image = _load_color(dev1_path)
+                dev2_image = _load_color(dev2_path)
 
                 self.assertTrue(
-                    np.array_equal(vis_image, dev1_image),
-                    f"{subdir}/{image_path.name} 染色图与 dev1 不一致，"
-                    f"最大像素差={int(np.abs(vis_image.astype(int) - dev1_image.astype(int)).max())}",
+                    np.array_equal(vis_image, dev2_image),
+                    f"{subdir}/{image_path.name} 染色图与 dev2 基准不一致，"
+                    f"最大像素差={int(np.abs(vis_image.astype(int) - dev2_image.astype(int)).max())}",
                 )
 
 
