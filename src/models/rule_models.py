@@ -18,6 +18,8 @@ from typing import Optional, List, Dict, Type
 from pydantic import BaseModel, Field
 from .enums import RuleTypeEnum
 
+from src.models.enums import RegionEnum
+
 
 # ============================================================
 # 第一部分：注册机制
@@ -431,6 +433,7 @@ class Rule11Config(BaseRuleConfig):
 class Rule11Feature(BaseRuleFeature):
     """Rule11特征：纵向细沟&纵向钢片数量"""
     num_longitudinal_grooves: int = Field(description="纵向线条数量")
+    region: RegionEnum = Field(description="小图区域：center/side")
 
 
 @register_rule_score

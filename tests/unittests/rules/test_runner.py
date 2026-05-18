@@ -37,8 +37,8 @@ class RulexExecutor:
     def __init__(self) -> None:
         self.calls = []
 
-    def exec_feature(self, image, config):
-        self.calls.append(("feature", image, config))
+    def exec_feature(self, image, config, is_debug=False):
+        self.calls.append(("feature", image, config, is_debug))
         return RulexFeature(value=3)
 
     def exec_score(self, config, feature):
@@ -57,7 +57,20 @@ def test_exec_feature_uses_config_name_for_lookup(monkeypatch):
     result = RuleRunner.exec_feature(image, config)
 
     assert result == RulexFeature(value=3)
-    assert executor.calls == [("feature", image, config)]
+    assert executor.calls == [("feature", image, config, False)]
+
+
+def test_exec_feature_passes_debug_flag(monkeypatch):
+    """验证 RuleRunner.exec_feature 会把 debug 开关透传给 executor。"""
+    executor = RulexExecutor()
+    monkeypatch.setattr("src.rules.runner.get_rule_executor", lambda rule_name: executor)
+    image = make_small_image()
+    config = RulexConfig()
+
+    result = RuleRunner.exec_feature(image, config, is_debug=True)
+
+    assert result == RulexFeature(value=3)
+    assert executor.calls == [("feature", image, config, True)]
 
 
 def test_exec_score_uses_config_name_for_lookup(monkeypatch):

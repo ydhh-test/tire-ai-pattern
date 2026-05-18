@@ -154,6 +154,7 @@ def recalculate_current_score(evaluation: ImageEvaluation) -> None:
 def evaluate_image_with_configs(
     image: BaseImage,
     configs: list[BaseRuleConfig],
+    is_debug: bool = False,
 ) -> ImageEvaluation:
     """使用指定规则配置完整评估一张图片。
 
@@ -164,6 +165,7 @@ def evaluate_image_with_configs(
     Args:
         image: 待评估的图片对象，可以是小图或大图。
         configs: 当前节点筛选后的规则配置列表，执行顺序与列表顺序一致。
+        is_debug: 是否在规则特征中附带 debug 可视化结果。
 
     Returns:
         新生成的图片评估结果对象。调用方负责将其写回到图片的
@@ -177,7 +179,7 @@ def evaluate_image_with_configs(
     rule_evaluations: list[RuleEvaluation] = []
 
     for config in configs:
-        feature = RuleRunner.exec_feature(image, config)
+        feature = RuleRunner.exec_feature(image, config, is_debug=is_debug)
         score = RuleRunner.exec_score(config, feature)
         rule_evaluations.append(
             RuleEvaluation(

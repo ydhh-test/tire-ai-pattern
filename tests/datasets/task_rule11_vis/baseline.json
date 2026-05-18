@@ -1,0 +1,56 @@
+{
+  "cases": [
+    {
+      "image_path": "center_inf/0.png",
+      "region": "center",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_longitudinal_grooves": 1,
+        "region": "center"
+      },
+      "score": {
+        "score": 4
+      }
+    },
+    {
+      "image_path": "center_inf/2.png",
+      "region": "center",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_longitudinal_grooves": 2,
+        "region": "center"
+      },
+      "score": {
+        "score": 4
+      }
+    },
+    {
+      "image_path": "side_inf/1.png",
+      "region": "side",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_longitudinal_grooves": 0,
+        "region": "side"
+      },
+      "score": {
+        "score": 4
+      }
+    },
+    {
+      "image_path": "side_inf/3.png",
+      "region": "side",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_longitudinal_grooves": 0,
+        "region": "side"
+      },
+      "score": {
+        "score": 4
+      }
+    }
+  ]
+}

@@ -44,8 +44,8 @@ class FakeRuleRunner:
         cls.calls = []
 
     @staticmethod
-    def exec_feature(image, config):
-        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name))
+    def exec_feature(image, config, is_debug=False):
+        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name, is_debug))
         if config.name == "rule8":
             return Rule8Feature(num_transverse_grooves=3)
         if config.name == "rule13":

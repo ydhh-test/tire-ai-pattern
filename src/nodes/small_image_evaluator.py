@@ -18,6 +18,7 @@ NODE_NAME = "small_image_evaluator"
 def evaluate_small_images(
     small_images: list[SmallImage],
     rules_config: list[BaseRuleConfig],
+    is_debug: bool = False,
 ) -> list[SmallImage]:
     """评估一组小图并写回每张小图的评估结果。
 
@@ -30,6 +31,7 @@ def evaluate_small_images(
         small_images: 待评估的小图列表。列表不能为空。
         rules_config: 用户传入的完整规则配置列表，函数只会执行本节点
             支持的规则配置。
+        is_debug: 是否在规则特征中附带 debug 可视化结果。
 
     Returns:
         原始 ``small_images`` 列表对象。列表内每个 ``SmallImage`` 都会
@@ -52,6 +54,7 @@ def evaluate_small_images(
         small_image.evaluation = evaluate_image_with_configs(
             small_image,
             configs,
+            is_debug=is_debug,
         )
 
     return small_images

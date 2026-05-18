@@ -38,8 +38,8 @@ def detect_longitudinal_grooves(
     """
     检测小图中的纵向细沟或纵向钢片。
 
-    算法层只负责输出检测特征，不接收小图类型，不进行规则打分，也不判断 center/side 的数量是否合规。
-    规则层可基于 ``groove_count``、``groove_positions_px`` 和 ``groove_widths_px`` 再执行评分。
+    算法层只负责输出检测特征，不接收小图类型，不进行打分，也不判断 center/side 的数量是否合规。
+    调用方可基于 ``groove_count``、``groove_positions_px`` 和 ``groove_widths_px`` 执行后续业务逻辑。
 
     参数：
         image: BGR 图像数组，形状必须为 ``(H, W, 3)``。

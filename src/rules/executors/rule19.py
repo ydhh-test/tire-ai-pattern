@@ -14,6 +14,7 @@ class Rule19Executor(RuleExecutor):
         self,
         image: BaseImage,
         config: Rule19Config,
+        is_debug: bool = False,
     ) -> BaseRuleFeature:
         return Rule19Feature()
 
