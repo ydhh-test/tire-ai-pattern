@@ -12,9 +12,10 @@ class RuleRunner:
     def exec_feature(
         image: BaseImage,
         config: BaseRuleConfig,
+        is_debug: bool = False,
     ) -> BaseRuleFeature:
         executor = get_rule_executor(config.name)
-        return executor.exec_feature(image, config)
+        return executor.exec_feature(image, config, is_debug=is_debug)
 
     @staticmethod
     def exec_score(

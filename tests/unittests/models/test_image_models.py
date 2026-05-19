@@ -1,4 +1,5 @@
 import pytest
+from src.models.enums import RegionEnum
 from src.models.image_models import SmallImage, ImageMeta, ImageBiz, ImageEvaluation, RuleEvaluation
 
 # ===================== 测试数据（模块级常量）=====================
@@ -228,7 +229,7 @@ class TestRuleEvaluationValidation:
 
         evaluation = RuleEvaluation.model_validate(input_dict)
         with pytest.raises(ValueError, match="feature.name"):
-            evaluation.feature = Rule11Feature(num_longitudinal_grooves=3)
+            evaluation.feature = Rule11Feature(num_longitudinal_grooves=3, region=RegionEnum.CENTER)
 
     def test_validate_name_consistency_score_mismatch(self):
         """❌ 校验规则 10：score 名称不一致"""

@@ -17,7 +17,7 @@ class RulexConfig(BaseRuleConfig):
 class DummyExecutor(RuleExecutor):
     rule_cls = RulexConfig
 
-    def exec_feature(self, image, config):
+    def exec_feature(self, image, config, is_debug=False):
         raise AssertionError("not called")
 
     def exec_score(self, config, feature):
@@ -71,7 +71,7 @@ def test_register_rule_executor_requires_rule_executor_subclass():
 def test_register_rule_executor_requires_rule_cls():
     """验证注册装饰器拒绝缺少 rule_cls 声明的 executor 类。"""
     class MissingRuleClsExecutor(RuleExecutor):
-        def exec_feature(self, image, config):
+        def exec_feature(self, image, config, is_debug=False):
             raise AssertionError("not called")
 
         def exec_score(self, config, feature):

@@ -21,6 +21,7 @@ class RuleExecutor(ABC):
         self,
         image: BaseImage,
         config: BaseRuleConfig,
+        is_debug: bool = False,
     ) -> BaseRuleFeature:
         raise NotImplementedError(f"{config.name}.exec_feature is not implemented")
 

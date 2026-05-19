@@ -17,10 +17,7 @@ from src.common.exceptions import InputDataError, RuntimeProcessError
 
 logger = logging.getLogger(__name__)
 
-_SCORE_GROOVE_COUNT = 4
-_SCORE_INTERSECTION = 2
-_LEGACY_DEBUG_MAX_INTERSECTIONS = 2
-_VIS_NAME = "groove_intersection"
+_VIS_NAME = "groove_intersections"
 
 
 def detect_transverse_grooves(
@@ -42,7 +39,7 @@ def detect_transverse_grooves(
     - vis_name: debug 可视化建议文件名；非 debug 模式为空字符串
     - vis_image: debug 可视化图像；非 debug 模式为 None
 
-    注意：算法层不计算规则得分、不保存文件，也不处理 task_id 或输出目录。
+    注意：算法层不计算规则得分、不保存文件，也不处理输出目录。
     """
     logger.debug("开始横沟检测，groove_width_px=%d", groove_width_px)
 
@@ -105,19 +102,12 @@ def detect_transverse_grooves(
     vis_image = None
     if is_debug:
         try:
-            valid_groove_count, valid_intersections, debug_score = _legacy_debug_status(
-                groove_count,
-                intersection_count,
-            )
             vis_image = _draw_debug_image(
                 image,
                 groove_mask,
                 groove_positions,
                 groove_count,
                 intersection_count,
-                valid_groove_count,
-                valid_intersections,
-                debug_score,
             )
             vis_name = _VIS_NAME
         except Exception as original_error:
@@ -257,45 +247,24 @@ def _count_intersections(binary: np.ndarray, groove_mask: np.ndarray) -> int:
     return intersections
 
 
-def _legacy_debug_status(
-    groove_count: int,
-    intersection_count: int,
-) -> Tuple[bool, bool, float]:
-    """计算仅用于 debug 图标注的状态。"""
-    valid_groove_count = groove_count == 1
-
-    valid_intersections = intersection_count <= _LEGACY_DEBUG_MAX_INTERSECTIONS
-    debug_score = 0
-    if valid_groove_count:
-        debug_score += _SCORE_GROOVE_COUNT
-    if valid_intersections:
-        debug_score += _SCORE_INTERSECTION
-    return valid_groove_count, valid_intersections, float(debug_score)
-
-
 def _draw_debug_image(
     image: np.ndarray,
     groove_mask: np.ndarray,
     groove_positions: List[float],
     groove_count: int,
     intersection_count: int,
-    valid_groove_count: bool,
-    valid_intersections: bool,
-    debug_score: float,
 ) -> np.ndarray:
-    """在原图上叠加横沟掩码、横沟中心线和调试文字。"""
+    """在原图上叠加横沟掩码、横沟中心线和检测结果文字。"""
     debug_image = image.copy()
 
     overlay = np.zeros_like(debug_image)
     overlay[groove_mask > 0] = (0, 200, 0)
     debug_image = cv2.addWeighted(debug_image, 0.7, overlay, 0.3, 0)
 
-    image_height, image_width = debug_image.shape[:2]
-    del image_height
-    line_color = (0, 255, 0) if valid_groove_count else (0, 0, 255)
+    _, image_width = debug_image.shape[:2]
     for groove_position in groove_positions:
         row_position = int(round(groove_position))
-        cv2.line(debug_image, (0, row_position), (image_width - 1, row_position), line_color, 1)
+        cv2.line(debug_image, (0, row_position), (image_width - 1, row_position), (0, 255, 0), 1)
 
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 0.35
@@ -303,9 +272,8 @@ def _draw_debug_image(
     text_color = (255, 255, 255)
     background_color = (0, 0, 0)
     lines = [
-        f"G:{groove_count} {'OK' if valid_groove_count else 'NG'}",
-        f"X:{intersection_count} {'OK' if valid_intersections else 'NG'}",
-        f"S:{debug_score:.0f}",
+        f"G:{groove_count}",
+        f"X:{intersection_count}",
     ]
     current_y = 10
     for line in lines:

@@ -14,15 +14,15 @@ import numpy as np
 import pytest
 
 from src.common.exceptions import InputDataError, InputTypeError
-from src.core import longitudinal_groove as lg
-from src.core.longitudinal_groove import detect_longitudinal_grooves
+from src.core.detection import longitudinal_groove as lg
+from src.core.detection.longitudinal_groove import detect_longitudinal_grooves
 
 
 IMAGE_SIZE = 128
-DATASET_SOURCE_ROOT = Path(__file__).parents[2] / "datasets" / "task_longitudinal_groove_vis"
+DATASET_SOURCE_ROOT = Path(__file__).parents[3] / "datasets" / "task_longitudinal_groove_vis"
 DATASET_IMAGE_FOLDERS = ("center_inf", "side_inf")
 DEBUG_BASELINE_ROOT = DATASET_SOURCE_ROOT / "debug_baseline"
-RESULT_ROOT = Path(__file__).parents[3] / ".results" / "task_longitudinal_groove_vis"
+RESULT_ROOT = Path(__file__).parents[4] / ".results" / "task_longitudinal_groove_vis"
 DATASET_RUNTIME_ROOT = RESULT_ROOT / "dataset"
 DEBUG_OUTPUT_ROOT = RESULT_ROOT / "debug"
 DATASET_IMAGE_RELATIVE_PATHS = [

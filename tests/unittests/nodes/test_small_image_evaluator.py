@@ -55,12 +55,12 @@ class FakeRuleRunner:
         cls.calls = []
 
     @staticmethod
-    def exec_feature(image, config):
-        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name))
+    def exec_feature(image, config, is_debug=False):
+        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name, is_debug))
         if config.name == "rule6":
             return Rule6Feature(is_continuous=True)
         if config.name == "rule11":
-            return Rule11Feature(num_longitudinal_grooves=2)
+            return Rule11Feature(num_longitudinal_grooves=2, region=image.biz.region)
         raise AssertionError(f"unexpected feature config {config.name}")
 
     @staticmethod
@@ -75,7 +75,7 @@ class FakeRuleRunner:
 
 class FailingRuleRunner(FakeRuleRunner):
     @staticmethod
-    def exec_feature(image, config):
+    def exec_feature(image, config, is_debug=False):
         raise RuntimeError("boom")
 
 

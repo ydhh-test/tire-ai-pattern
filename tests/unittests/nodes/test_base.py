@@ -65,12 +65,12 @@ class FakeRuleRunner:
         cls.calls = []
 
     @staticmethod
-    def exec_feature(image, config):
-        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name))
+    def exec_feature(image, config, is_debug=False):
+        FakeRuleRunner.calls.append(("feature", image.image_base64, config.name, is_debug))
         if config.name == "rule6":
             return Rule6Feature(is_continuous=True)
         if config.name == "rule11":
-            return Rule11Feature(num_longitudinal_grooves=2)
+            return Rule11Feature(num_longitudinal_grooves=2, region=RegionEnum.CENTER)
         raise AssertionError(f"unexpected feature config {config.name}")
 
     @staticmethod
@@ -113,3 +113,17 @@ def test_evaluate_image_with_configs_builds_rule_evaluations(monkeypatch):
     assert [rule.name for rule in evaluation.rules] == ["rule6", "rule11"]
     assert evaluation.current_score == 10
     assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score", "feature", "score"]
+
+
+def test_evaluate_image_with_configs_passes_debug_flag(monkeypatch):
+    """验证通用图片评估 helper 会把 debug 开关传给 RuleRunner。"""
+    FakeRuleRunner.reset()
+    monkeypatch.setattr("src.nodes.base.RuleRunner", FakeRuleRunner)
+
+    evaluate_image_with_configs(
+        make_small_image(),
+        [Rule6Config()],
+        is_debug=True,
+    )
+
+    assert FakeRuleRunner.calls[0] == ("feature", "data:image/png;base64,small", "rule6", True)
