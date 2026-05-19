@@ -1,4 +1,5 @@
 import pytest
+import src.rules.executors as executors
 
 from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum
 from src.models.image_models import BigImage, ImageBiz, ImageMeta
@@ -29,8 +30,10 @@ from src.models.rule_models import (
 )
 from src.rules.base import RuleExecutor
 from src.rules.registry import get_rule_executor
-import src.rules.executors as executors
 from src.rules.executors.rule19 import Rule19Executor
+
+
+executors.load_all_executors()
 
 
 ALL_RULE_CONFIGS = [
