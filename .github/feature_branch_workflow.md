@@ -58,7 +58,9 @@ git switch <feature-branch>
 git rebase upstream/dev2
 ```
 
-如果 rebase 过程中出现冲突，解决冲突后继续：
+如果 rebase 过程中出现冲突，AI 必须暂停当前 rebase 流程，并将冲突文件、冲突原因和当前状态反馈给人工处理。冲突必须由人工解决并确认后，AI 才能继续执行后续命令。
+
+人工完成冲突解决并明确确认后，再继续：
 
 ```bash
 git add <resolved-files>
