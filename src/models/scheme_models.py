@@ -21,6 +21,8 @@ from typing import Optional, List, Tuple, Union
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from .enums import RegionEnum, SourceTypeEnum, StitchingSchemeName, RibOperation
+from .rule_models import Rule1Config, Rule2Config
+from .template_registry import register_stitching_template
 
 
 # ============================================================
@@ -73,10 +75,19 @@ class StitchingTemplate(BaseModel):
     description: str = Field(description="方案描述")
     rib_number: int = Field(description="RIB数量")
     mode: str = Field(description="模式")
+    matching_rule_names: Tuple[str, ...] = Field(
+        default_factory=tuple,
+        description="可命中的模板过滤规则名称",
+    )
     rib_template_list: List[RibTemplate] = Field(description="RIB模板定义列表")
     post_processing: Optional[Tuple[RibOperation, ...]] = Field(default=None, description="后处理操作序列")
 
+    @property
+    def log_display(self) -> str:
+        return f'{self.__class__.__name__}[{self.description}]'
 
+
+@register_stitching_template
 class Symmetry0(StitchingTemplate):
     """拼接模板：symmetry_0 - 5个RIB，无对称"""
 
@@ -84,6 +95,7 @@ class Symmetry0(StitchingTemplate):
     description: str = "5个RIB，无对称"
     rib_number: int = 5
     mode: str = "symmetry"
+    matching_rule_names: Tuple[str, ...] = (Rule1Config().name,)
     rib_template_list: List[RibTemplate] = [
         RibTemplate(rib_name="rib1", operation_template=(RibOperation.NONE,), region=RegionEnum.SIDE),
         RibTemplate(rib_name="rib2", operation_template=(RibOperation.NONE,), region=RegionEnum.CENTER),
@@ -93,6 +105,7 @@ class Symmetry0(StitchingTemplate):
     ]
 
 
+@register_stitching_template
 class Symmetry1(StitchingTemplate):
     """拼接模板：symmetry_1 - 5个RIB，中心对称"""
 
@@ -100,6 +113,7 @@ class Symmetry1(StitchingTemplate):
     description: str = "5个RIB，中心对称"
     rib_number: int = 5
     mode: str = "symmetry"
+    matching_rule_names: Tuple[str, ...] = (Rule2Config().name,)
     rib_template_list: List[RibTemplate] = [
         RibTemplate(rib_name="rib1", operation_template=(RibOperation.NONE,), region=RegionEnum.SIDE),
         RibTemplate(rib_name="rib2", operation_template=(RibOperation.NONE,), region=RegionEnum.CENTER),
@@ -210,6 +224,7 @@ class Symmetry6(StitchingTemplate):
 #         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.NONE,), rib_name="rib5"),
 #     ]
 
+@register_stitching_template
 class Continuity0(StitchingTemplate):
     """无操作模版，不修改对称性方案"""
 
@@ -227,6 +242,7 @@ class Continuity0(StitchingTemplate):
     ]
 
 
+@register_stitching_template
 class Continuity1(StitchingTemplate):
     """拼接模板：continuity_0 - RIB2-RIB3连续，边缘独立"""
 
@@ -242,6 +258,32 @@ class Continuity1(StitchingTemplate):
         RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib4", rib_name="rib4"),
         RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib5", rib_name="rib5"),
     ]
+
+@register_stitching_template
+class Continuity2(StitchingTemplate):
+    """拼接模板：continuity_2 - RIB2-RIB3连续，边缘独立"""
+
+    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_2
+    description: str = "RIB3-RIB4连续，边缘独立"
+    rib_number: int = 5
+    mode: str = "continuity"
+    matching_rule_names: Tuple[str, ...] = tuple()
+    rib_template_list: List[RibTemplate] = [
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib1", rib_name="rib1"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib2", rib_name="rib2"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT), inherit_from="rib4", rib_name="rib3"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.RIGHT), inherit_from="rib4", rib_name="rib4"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib5", rib_name="rib5"),
+    ]
+
+# 中心对称 + RIB3-RIB4连续
+# Symmetry1 +  Continuity2： rib1 -> inherit_from="rib1" -> RibOperation.None, RibOperation.None,
+# Symmetry1 +  Continuity2： rib2 -> inherit_from="rib2" -> RibOperation.None, RibOperation.None,
+# Symmetry1 +  Continuity2： rib3 -> inherit_from="rib2" -> RibOperation.FLIP, RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT
+# Symmetry1 +  Continuity2： rib4 -> inherit_from="rib2" -> RibOperation.FLIP, RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.RIGHT
+# Symmetry1 +  Continuity2： rib5 -> inherit_from="rib1" -> RibOperation.None, RibOperation.None,
+
+# TODO: 2-3-4连续 方案设计 rib3，inherit_from=["rib2", "rib4"] 单独rib2+单独rib4->合并->rib3  问题：一个rib是由2个不同的图合并的
 
 
 # ============================================================
@@ -296,7 +338,6 @@ class StitchingScheme(BaseModel):
 
     由TemplateInstantiator生成，存储实际执行数据和结果。
     """
-
     stitching_scheme_abstract: StitchingSchemeAbstract = Field(description="拼接方案摘要")
     ribs_scheme_implementation: List[RibSchemeImpl] = Field(default_factory=list, description="RIB拼接方案实现列表")
 

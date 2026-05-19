@@ -123,7 +123,6 @@ def select_node_configs(
     Raises:
         InputDataError: 当 ``rules_config`` 中存在重复规则配置类型时抛出。
     """
-
     validate_no_duplicate_config_types(rules_config)
     config_by_type = {type(config): config for config in rules_config}
 

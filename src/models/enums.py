@@ -54,11 +54,15 @@ class StitchingSchemeName(str, Enum):
     SYMMETRY_0 = "symmetry_0"          # 无对称
     SYMMETRY_1 = "symmetry_1"          # 中心旋转180°对称
     SYMMETRY_2 = "symmetry_2"          # 左右镜像对称
+    
     SYMMETRY_4 = "symmetry_4"          # 无对称
     SYMMETRY_5 = "symmetry_5"          # 中心旋转180°对称
     SYMMETRY_6 = "symmetry_6"          # 左右镜像对称
-    CONTINUITY_0 = "continuity_0"      # RIB2-3-4中间全连续
-    CONTINUITY_1 = "continuity_1"      # 其他连续性
+
+    CONTINUITY_0 = "continuity_0"      # 无连续性
+    CONTINUITY_1 = "continuity_1"      # RIB2-3中间全连续
+    CONTINUITY_2 = "continuity_2"      # RIB3-4中间全连续
+
     _CONCATENATE_0 = "_concatenate_0"  # 内部：两张图拼接（单下划线避免名称修饰）
 
 
