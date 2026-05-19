@@ -1,56 +1,50 @@
-from src.rules.executors.rule1 import Rule1Executor
-from src.rules.executors.rule2 import Rule2Executor
-from src.rules.executors.rule3 import Rule3Executor
-from src.rules.executors.rule4 import Rule4Executor
-from src.rules.executors.rule5 import Rule5Executor
-from src.rules.executors.rule6 import Rule6Executor
-from src.rules.executors.rule6a import Rule6AExecutor
-from src.rules.executors.rule7 import Rule7Executor
-from src.rules.executors.rule8 import Rule8Executor
-from src.rules.executors.rule9 import Rule9Executor
-from src.rules.executors.rule10 import Rule10Executor
-from src.rules.executors.rule11 import Rule11Executor
-from src.rules.executors.rule12 import Rule12Executor
-from src.rules.executors.rule13 import Rule13Executor
-from src.rules.executors.rule14 import Rule14Executor
-from src.rules.executors.rule15 import Rule15Executor
-from src.rules.executors.rule16 import Rule16Executor
-from src.rules.executors.rule17 import Rule17Executor
-from src.rules.executors.rule18 import Rule18Executor
-from src.rules.executors.rule19 import Rule19Executor
-from src.rules.executors.rule20 import Rule20Executor
-from src.rules.executors.rule21 import Rule21Executor
-from src.rules.executors.rule22 import Rule22Executor
-from src.rules.executors.rule100 import Rule100Executor
-from src.rules.executors.rule101 import Rule101Executor
-from src.rules.executors.rule102 import Rule102Executor
+from __future__ import annotations
+
+from importlib import import_module
 
 
-__all__ = [
-    "Rule1Executor",
-    "Rule2Executor",
-    "Rule3Executor",
-    "Rule4Executor",
-    "Rule5Executor",
-    "Rule6Executor",
-    "Rule6AExecutor",
-    "Rule7Executor",
-    "Rule8Executor",
-    "Rule9Executor",
-    "Rule10Executor",
-    "Rule11Executor",
-    "Rule12Executor",
-    "Rule13Executor",
-    "Rule14Executor",
-    "Rule15Executor",
-    "Rule16Executor",
-    "Rule17Executor",
-    "Rule18Executor",
-    "Rule19Executor",
-    "Rule20Executor",
-    "Rule21Executor",
-    "Rule22Executor",
-    "Rule100Executor",
-    "Rule101Executor",
-    "Rule102Executor",
-]
+_EXECUTOR_MODULES = {
+    "Rule1Executor": "src.rules.executors.rule1",
+    "Rule2Executor": "src.rules.executors.rule2",
+    "Rule3Executor": "src.rules.executors.rule3",
+    "Rule4Executor": "src.rules.executors.rule4",
+    "Rule5Executor": "src.rules.executors.rule5",
+    "Rule6Executor": "src.rules.executors.rule6",
+    "Rule6AExecutor": "src.rules.executors.rule6a",
+    "Rule7Executor": "src.rules.executors.rule7",
+    "Rule8Executor": "src.rules.executors.rule8",
+    "Rule9Executor": "src.rules.executors.rule9",
+    "Rule10Executor": "src.rules.executors.rule10",
+    "Rule11Executor": "src.rules.executors.rule11",
+    "Rule12Executor": "src.rules.executors.rule12",
+    "Rule13Executor": "src.rules.executors.rule13",
+    "Rule14Executor": "src.rules.executors.rule14",
+    "Rule15Executor": "src.rules.executors.rule15",
+    "Rule16Executor": "src.rules.executors.rule16",
+    "Rule17Executor": "src.rules.executors.rule17",
+    "Rule18Executor": "src.rules.executors.rule18",
+    "Rule19Executor": "src.rules.executors.rule19",
+    "Rule20Executor": "src.rules.executors.rule20",
+    "Rule21Executor": "src.rules.executors.rule21",
+    "Rule22Executor": "src.rules.executors.rule22",
+    "Rule100Executor": "src.rules.executors.rule100",
+    "Rule101Executor": "src.rules.executors.rule101",
+    "Rule102Executor": "src.rules.executors.rule102",
+}
+
+__all__ = list(_EXECUTOR_MODULES)
+
+
+def __getattr__(name: str):
+    try:
+        module_name = _EXECUTOR_MODULES[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    module = import_module(module_name)
+    return getattr(module, name)
+
+
+def load_all_executors() -> None:
+    for executor_name in __all__:
+        getattr(import_module(_EXECUTOR_MODULES[executor_name]), executor_name)

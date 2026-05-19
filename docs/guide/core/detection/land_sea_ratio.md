@@ -77,7 +77,7 @@ ratio_percent = (black_area + gray_area) / total_area × 100
 当 `is_debug=True` 时，在原图上叠加颜色标注：
 - 黑色区域叠加红色半透明覆盖层（alpha=0.5）
 - 灰色区域叠加绿色半透明覆盖层（alpha=0.5）
-- 左上角用 PIL 绘制海陆比百分比文字（字体大小自适应图像尺寸，文字颜色根据背景亮度自动选黑/白，支持中文显示）
+
 
 ---
 
@@ -158,9 +158,7 @@ else:
 
 生成带颜色叠加标注的可视化图像，左上角标注海陆比值。
 
-### `_put_chinese_text(bgr_image, text, position, font_size, color_bgr) -> np.ndarray`
 
-用 PIL 在 BGR 图像上绘制中文文字，避免 `cv2.putText` 中文乱码。字体优先加载系统 `simhei.ttf`，找不到时降级为 PIL 默认字体。
 
 ---
 
@@ -187,5 +185,4 @@ else:
 | 函数出参 | `(score: int, details: dict)` | `(score, ratio_percent, vis_name, vis_image)` | `(ratio_percent, vis_name, vis_image)` |
 | 评分逻辑 | 算法层内部 | 算法层内部（`_score()`） | 规则层 `Rule13Executor.exec_score` |
 | 业务参数 | 从配置 dict 读取 | 算法层显式参数 | 规则层 `Rule13Config` 字段 |
-| 可视化文字 | `cv2.putText`（中文乱码） | `cv2.putText`（中文乱码） | PIL `ImageDraw.text`（中文正常） |
 | 文件操作 | 算法层包含 `Path`、`json.dump` | 算法层无文件 I/O | 算法层无文件 I/O |
