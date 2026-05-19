@@ -6,14 +6,14 @@
 
 海陆比是评估轮胎花纹排水性能的重要指标。黑色区域代表深沟槽，灰色区域代表浅沟槽或细花纹，两者之和与总面积的比值即为海陆比。
 
-本模块属于算法层（`src/core/scoring/`），只负责像素统计和比值计算，不含任何评分或业务配置逻辑。评分逻辑由规则层 `Rule13Executor` 负责。
+本模块属于算法层（`src/core/detection/`），只负责像素统计和比值计算，不含任何评分或业务配置逻辑。评分逻辑由规则层 `Rule13Executor` 负责。
 
 ---
 
 ## 函数入口
 
 ```python
-from src.core.scoring.land_sea_ratio import compute_land_sea_ratio
+from src.core.detection.land_sea_ratio import compute_land_sea_ratio
 ```
 
 ---
@@ -77,7 +77,7 @@ ratio_percent = (black_area + gray_area) / total_area × 100
 当 `is_debug=True` 时，在原图上叠加颜色标注：
 - 黑色区域叠加红色半透明覆盖层（alpha=0.5）
 - 灰色区域叠加绿色半透明覆盖层（alpha=0.5）
-
+- 左上角用 `cv2.putText` 标注海陆比百分比（字体大小自适应图像尺寸，文字颜色根据背景亮度自动选黑/白）
 
 ---
 
@@ -97,7 +97,7 @@ ratio_percent = (black_area + gray_area) / total_area × 100
 
 ```python
 import cv2
-from src.core.scoring.land_sea_ratio import compute_land_sea_ratio
+from src.core.detection.land_sea_ratio import compute_land_sea_ratio
 
 image = cv2.imread("combine_horizontal/sample.png")
 
@@ -134,8 +134,6 @@ return Rule13Feature(land_ratio=ratio_percent)
 # Rule13Executor.exec_score 内部
 if config.land_ratio_min <= ratio <= config.land_ratio_max:
     score = config.max_score          # 2 分（优秀）
-elif ratio 在容差区间内:
-    score = 1                         # 1 分（合格）
 else:
     score = 0                         # 0 分（不合格）
 ```
@@ -158,8 +156,6 @@ else:
 
 生成带颜色叠加标注的可视化图像，左上角标注海陆比值。
 
-
-
 ---
 
 ## 测试覆盖
@@ -180,9 +176,10 @@ else:
 
 | 项目 | 老架构 | 初次迁移（dev2） | 当前版本（重构后） |
 |---|---|---|---|
-| 模块路径 | `rules.scoring.land_sea_ratio` | `src.core.scoring.land_sea_ratio` | `src.core.scoring.land_sea_ratio` |
+| 模块路径 | `rules.scoring.land_sea_ratio` | `src.core.scoring.land_sea_ratio` | `src.core.detection.land_sea_ratio` |
 | 函数入参 | `(img, conf: dict)` | `(image, target_min, target_max, margin, is_debug)` | `(image, is_debug)` |
 | 函数出参 | `(score: int, details: dict)` | `(score, ratio_percent, vis_name, vis_image)` | `(ratio_percent, vis_name, vis_image)` |
 | 评分逻辑 | 算法层内部 | 算法层内部（`_score()`） | 规则层 `Rule13Executor.exec_score` |
 | 业务参数 | 从配置 dict 读取 | 算法层显式参数 | 规则层 `Rule13Config` 字段 |
+| 可视化文字 | `cv2.putText`（中文乱码） | `cv2.putText`（中文乱码） | `cv2.putText` 标注 `LSR` 百分比 |
 | 文件操作 | 算法层包含 `Path`、`json.dump` | 算法层无文件 I/O | 算法层无文件 I/O |

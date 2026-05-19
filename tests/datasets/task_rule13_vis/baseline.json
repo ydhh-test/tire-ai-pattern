@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "image_path": "combine_horizontal/sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 24.72
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "combine_horizontal/sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 24.36
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "combine_horizontal/sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 25.25
+      },
+      "score": {
+        "score": 0
+      }
+    }
+  ]
+}
