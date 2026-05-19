@@ -690,13 +690,13 @@ class TestGrayscaleAndSpecialFormats:
     """灰度图像和特殊格式测试"""
 
     def test_grayscale_image_support(self):
-        """灰度图像支持测试"""
-        expected_shape = (100, 100, BGR_CHANNELS)
+        """灰度图像支持测试 - IMREAD_UNCHANGED 保留原始单通道"""
+        expected_shape = (100, 100)
         # 创建灰度图像
         gray_array = np.random.randint(0, 256, (100, 100), dtype=np.uint8)
         base64_str = ndarray_to_base64(gray_array, "png")
         decoded_gray = base64_to_ndarray(base64_str)
-        # OpenCV会将灰度图像转换为3通道BGR，所以shape应该是(100, 100, 3)
+        # IMREAD_UNCHANGED 会保留灰度图像的单通道
         assert decoded_gray.shape == expected_shape
 
     @pytest.mark.skipif(not (TEST_DATASET_PATH / "0.png").exists(), reason="测试数据集不存在")

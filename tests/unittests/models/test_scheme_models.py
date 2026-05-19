@@ -1,5 +1,6 @@
 import pytest
 from src.models.scheme_models import RibTemplate, Symmetry0, RibSchemeImpl, DecorationImpl
+from src.models.enums import RibOperation
 
 
 # ===================== 模板类 frozen 测试 =====================
@@ -28,42 +29,51 @@ class TestRibSchemeImplValidation:
     """RibSchemeImpl 校验规则测试"""
 
     def test_validate_name_required_top_level_with_name(self):
-        """✅ 校验规则 11：最外层有 rib_name"""
-        input_dict = {"source_type": "original", "operations": [""], "rib_name": "rib1", "is_nested": False}
-        expected_dict = {"rib_name": "rib1"}
+        """✅ 校验规则 11：有 rib_name 时正常"""
+        input_dict = {"rib_source": "side", "rib_operation": (RibOperation.NONE,), "rib_name": "rib1"}
 
         rib = RibSchemeImpl.model_validate(input_dict)
-        assert rib.rib_name == expected_dict["rib_name"]
+        assert rib.rib_name == "rib1"
 
     def test_validate_name_required_top_level_without_name(self):
-        """❌ 校验规则 11：最外层没有 rib_name"""
-        input_dict = {"source_type": "original", "operations": [""], "is_nested": False}
+        """❌ 校验规则 11：没有 rib_name 时抛错"""
+        input_dict = {"rib_source": "side", "rib_operation": (RibOperation.NONE,)}
 
-        with pytest.raises(ValueError, match="最外层RIB必须有rib_name"):
+        with pytest.raises(ValueError, match="最外层 RIB 必须有 rib_name"):
             RibSchemeImpl.model_validate(input_dict)
 
     def test_validate_name_nested_without_name(self):
-        """✅ 校验规则 11：嵌套 RIB 可以没有 rib_name"""
-        input_dict = {"source_type": "original", "operations": [""], "is_nested": True}
-        expected_dict = {"rib_name_is_none": True}
-
-        rib = RibSchemeImpl.model_validate(input_dict)
-        assert (rib.rib_name is None) == expected_dict["rib_name_is_none"]
+        """✅ 校验规则 11：嵌套 RibSchemeImpl 同样需要 rib_name"""
+        # RibSchemeImpl 通过 rib_operation 嵌套另一个 RibSchemeImpl
+        sub_rib = RibSchemeImpl(rib_source="side", rib_operation=(RibOperation.NONE,), rib_name="nested_rib")
+        parent_rib = RibSchemeImpl(
+            rib_source="center",
+            rib_operation=(sub_rib,),
+            rib_name="parent_rib",
+        )
+        assert parent_rib.rib_name == "parent_rib"
+        nested = parent_rib.rib_operation[0]
+        assert isinstance(nested, RibSchemeImpl)
+        assert nested.rib_name == "nested_rib"
 
     def test_validate_inherit_with_reference(self):
-        """✅ 校验规则 12：继承来源有 inherit_from"""
-        input_dict = {"source_type": "inherit", "inherit_from": "rib1", "operations": ["flip"], "rib_name": "rib5"}
-        expected_dict = {"inherit_from": "rib1"}
+        """✅ 校验规则 12：rib_same_as 有值时正常"""
+        input_dict = {
+            "rib_source": "side",
+            "rib_operation": (RibOperation.FLIP,),
+            "rib_name": "rib5",
+            "rib_same_as": "rib1",
+        }
 
         rib = RibSchemeImpl.model_validate(input_dict)
-        assert rib.inherit_from == expected_dict["inherit_from"]
+        assert rib.rib_same_as == "rib1"
 
     def test_validate_inherit_without_reference(self):
-        """❌ 校验规则 12：继承来源没有 inherit_from"""
-        input_dict = {"source_type": "inherit", "inherit_from": None, "operations": ["flip"], "rib_name": "rib5"}
+        """✅ 校验规则 12：rib_same_as 默认为 None"""
+        input_dict = {"rib_source": "side", "rib_operation": (RibOperation.FLIP,), "rib_name": "rib5"}
 
-        with pytest.raises(ValueError, match="继承来源必须指定inherit_from"):
-            RibSchemeImpl.model_validate(input_dict)
+        rib = RibSchemeImpl.model_validate(input_dict)
+        assert rib.rib_same_as is None
 
 
 # ===================== RibSchemeImpl 可变性测试 =====================
@@ -73,15 +83,15 @@ class TestRibSchemeImplMutability:
 
     def test_runtime_fill_fields(self):
         """运行时填充字段"""
-        input_dict = {"source_type": "original", "operations": [""], "rib_name": "rib1"}
-        expected_dict = {"small_image": "base64_data", "num_pitchs": 10, "rib_height": 100}
+        input_dict = {"rib_source": "original", "rib_operation": (RibOperation.NONE,), "rib_name": "rib1"}
+        expected_dict = {"before_image": "base64_data", "num_pitchs": 10, "rib_height": 100}
 
         rib = RibSchemeImpl.model_validate(input_dict)
-        rib.small_image = expected_dict["small_image"]
+        rib.before_image = expected_dict["before_image"]
         rib.num_pitchs = expected_dict["num_pitchs"]
         rib.rib_height = expected_dict["rib_height"]
 
-        assert rib.small_image == expected_dict["small_image"]
+        assert rib.before_image == expected_dict["before_image"]
         assert rib.num_pitchs == expected_dict["num_pitchs"]
         assert rib.rib_height == expected_dict["rib_height"]
 

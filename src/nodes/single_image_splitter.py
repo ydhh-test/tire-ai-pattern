@@ -20,7 +20,7 @@
 import cv2
 import numpy as np
 
-from utils.logger import get_logger
+from src.utils.logger import get_logger
 
 from src.core.split.cropping import (
     remove_black_and_split_segments,

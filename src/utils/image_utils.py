@@ -32,10 +32,10 @@ def base64_to_ndarray(image_base64: str) -> np.ndarray:
         if image_base64.startswith("data:image/"):
             image_base64 = image_base64.split(",")[1]
 
-        # 解码
+        # 解码 - 使用IMREAD_UNCHANGED保留alpha通道
         image_data = base64.b64decode(image_base64)
         image_array = np.frombuffer(image_data, dtype=np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        image = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
 
         if image is None:
             raise InputDataError("base64_to_ndarray", "image_base64", "invalid base64 or unsupported image format")

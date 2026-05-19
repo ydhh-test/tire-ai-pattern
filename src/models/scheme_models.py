@@ -17,7 +17,7 @@
 #   - 运行时类必须开启 validate_assignment=True
 # ============================================================
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 from .enums import RegionEnum, SourceTypeEnum, StitchingSchemeName, RibOperation
@@ -111,39 +111,69 @@ class Symmetry1(StitchingTemplate):
     ]
 
 
-class _Concatenate0(StitchingTemplate):
-    """拼接模板：_concatenate_0 - 用于两张图像的拼接（供内部使用）"""
+# class _Concatenate0(StitchingTemplate):
+#     """拼接模板：_concatenate_0 - 用于两张图像的拼接（供内部使用）"""
 
-    name: StitchingSchemeName = StitchingSchemeName._CONCATENATE_0
-    description: str = "两张图合并为1张，仅供内部使用"
-    rib_number: int = 2
-    mode: str = "concatenate"
-    rib_template_list: List[RibTemplate] = [
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.RIGHT_1_3)),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.LEFT_1_3)),
-    ]
-    post_processing: Tuple[RibOperation, ...] = (RibOperation._RESIZE_AS_FIRST_RIB,)
+#     name: StitchingSchemeName = StitchingSchemeName._CONCATENATE_0
+#     description: str = "两张图合并为1张，仅供内部使用"
+#     rib_number: int = 2
+#     mode: str = "concatenate"
+#     rib_template_list: List[RibTemplate] = [
+#         RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
+#                     operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.RIGHT_1_3)),
+#         RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib4",
+#                     operation_template=(RibOperation.RESIZE_HORIZONTAL_3X, RibOperation.LEFT_1_3)),
+#     ]
+#     post_processing: Tuple[RibOperation, ...] = (RibOperation._RESIZE_AS_FIRST_RIB,)
 
+
+# class Continuity0(StitchingTemplate):
+#     """拼接模板：continuity_0 - RIB2-RIB3-RIB4中间三条全连续，边缘独立"""
+
+#     name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_0
+#     description: str = "RIB2-RIB3-RIB4中间全连续，边缘独立"
+#     rib_number: int = 5
+#     mode: str = "continuity"
+#     matching_rule_names: Tuple[str, ...] = tuple()
+#     rib_template_list: List[RibTemplate] = [
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.NONE,), rib_name="rib1"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.LEFT_2_3), rib_name="rib2"),
+#         RibTemplate(source_type=SourceTypeEnum.CONCAT, sub_template_name=StitchingSchemeName._CONCATENATE_0, rib_name="rib3"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.RIGHT_2_3), rib_name="rib4"),
+#         RibTemplate(source_type=SourceTypeEnum.ORIGINAL, operation_template=(RibOperation.NONE,), rib_name="rib5"),
+#     ]
 
 class Continuity0(StitchingTemplate):
-    """拼接模板：continuity_0 - RIB2-RIB3-RIB4中间三条全连续，边缘独立"""
+    """无操作模版，不修改对称性方案"""
 
     name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_0
-    description: str = "RIB2-RIB3-RIB4中间全连续，边缘独立"
+    description: str = "无操作模版，不修改对称性方案"
     rib_number: int = 5
     mode: str = "continuity"
+    matching_rule_names: Tuple[str, ...] = tuple()
     rib_template_list: List[RibTemplate] = [
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib1",
-                    operation_template=(RibOperation.NONE,), rib_name="rib1"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib2",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.LEFT_2_3), rib_name="rib2"),
-        RibTemplate(sub_template_name=StitchingSchemeName._CONCATENATE_0, rib_name="rib3"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib4",
-                    operation_template=(RibOperation.RESIZE_HORIZONTAL_1_5X, RibOperation.RIGHT_2_3), rib_name="rib4"),
-        RibTemplate(source_type=SourceTypeEnum.INHERIT, inherit_from="rib5",
-                    operation_template=(RibOperation.NONE,), rib_name="rib5"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib1"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib2"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib3"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib4"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), rib_name="rib5"),
+    ]
+
+
+class Continuity1(StitchingTemplate):
+    """拼接模板：continuity_0 - RIB2-RIB3连续，边缘独立"""
+
+    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_1
+    description: str = "RIB2-RIB3连续，边缘独立"
+    rib_number: int = 5
+    mode: str = "continuity"
+    matching_rule_names: Tuple[str, ...] = tuple()
+    rib_template_list: List[RibTemplate] = [
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib1", rib_name="rib1"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.LEFT), inherit_from="rib2", rib_name="rib2"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.RESIZE_HORIZONTAL_2X, RibOperation.RIGHT), inherit_from="rib2", rib_name="rib3"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib4", rib_name="rib4"),
+        RibTemplate(source_type=SourceTypeEnum.INHERIT, operation_template=(RibOperation.NONE,), inherit_from="rib5", rib_name="rib5"),
     ]
 
 
@@ -153,40 +183,35 @@ class Continuity0(StitchingTemplate):
 
 class RibSchemeImpl(BaseModel):
     """
-    RIB拼接方案实现实体（运行时）
+    RIB 拼接方案实现实体（给程序使用）
 
-    由TemplateInstantiator从StitchingTemplate实例化而来。
-    包含操作序列、执行结果图片、节距数等运行时信息。
+    支持嵌套：rib_operation 可以是 RibOperation 枚举值或另一个 RibSchemeImpl。
     """
 
     model_config = ConfigDict(validate_assignment=True)
 
-    region: Optional[RegionEnum] = Field(default=None, description="来源区域")
-    source_type: SourceTypeEnum = Field(description="来源类型")
-    inherit_from: Optional[str] = Field(default=None, description="继承自哪个rib_name")
-    operations: Tuple[RibOperation, ...] = Field(description="操作序列")
-    rib_name: Optional[str] = Field(default=None, description="RIB名称")
-    is_nested: bool = Field(default=False, description="是否嵌套RIB")
+    rib_source: str = Field(description="来源图类型（如 side）")
+    rib_operation: Tuple[Union["RibOperation", "RibSchemeImpl"], ...] = Field(
+        default_factory=tuple, description="操作序列，支持嵌套 RIB 方案"
+    )
+    rib_name: Optional[str] = Field(default=None, description="RIB 名称（如 rib1）")
+    rib_same_as: Optional[str] = Field(default=None, description="等同于某个 rib_name")
 
-    # ---- 运行时填充字段 ----
-    small_image: Optional[str] = Field(default=None, description="小图base64")
+    # ---- 给实现留的字段 ----
+    before_image: Optional[str] = Field(default=None, description="小图 base64")
     num_pitchs: Optional[int] = Field(default=None, description="节距数量")
-    rib_height: Optional[int] = Field(default=None, description="RIB纵向图高度")
-    rib_width: Optional[int] = Field(default=None, description="RIB纵向图宽度")
-    rib_image: Optional[str] = Field(default=None, description="操作后的纵向图base64")
+    rib_height: Optional[int] = Field(default=None, description="纵向图高度")
+    rib_width: Optional[int] = Field(default=None, description="纵向图宽度")
+    after_image: Optional[str] = Field(default=None, description="操作后的纵向图 base64")
+
+    # ---- 给未来留的字段 ----
+    rib_operation_eval: Optional[dict] = Field(default=None, description="可被 eval() 的操作写法")
 
     @model_validator(mode="after")
     def _validate_name_required_for_top_level(self) -> "RibSchemeImpl":
-        """私有校验：最外层RIB必须有名称"""
-        if not self.is_nested and self.rib_name is None:
-            raise ValueError("最外层RIB必须有rib_name")
-        return self
-
-    @model_validator(mode="after")
-    def _validate_inherit_has_reference(self) -> "RibSchemeImpl":
-        """私有校验：继承来源必须有inherit_from"""
-        if self.source_type == SourceTypeEnum.INHERIT and self.inherit_from is None:
-            raise ValueError("继承来源必须指定inherit_from")
+        """私有校验：最外层 RIB 必须有名称"""
+        if self.rib_name is None:
+            raise ValueError("最外层 RIB 必须有 rib_name")
         return self
 
 
@@ -216,7 +241,8 @@ class StitchingScheme(BaseModel):
 class MainGrooveImpl(BaseModel):
     """主沟花纹实现实体（程序使用）- 存储主沟的图像数据和尺寸信息"""
 
-    groove_image: Optional[str] = Field(default=None, description="主沟图base64")
+    before_image: Optional[str] = Field(default=None, description="主沟图 base64")
+    after_image: Optional[str] = Field(default=None, description="主沟图 base64")
     groove_width: int = Field(description="主沟宽度(像素)")
     groove_height: int = Field(description="主沟高度(像素)")
 
@@ -243,7 +269,8 @@ class MainGrooveScheme(BaseModel):
 class DecorationImpl(BaseModel):
     """装饰花纹实现实体（程序使用）- 存储装饰花纹的图像数据、尺寸和透明度"""
 
-    decoration_image: Optional[str] = Field(default=None, description="装饰花纹图base64")
+    before_image: Optional[str] = Field(default=None, description="装饰花纹图 base64")
+    after_image: Optional[str] = Field(default=None, description="装饰花纹图 base64")
     decoration_width: int = Field(description="装饰宽度(像素)")
     decoration_height: int = Field(description="装饰高度(像素)")
     decoration_opacity: int = Field(ge=0, le=255, description="边缘花纹透明度")

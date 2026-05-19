@@ -5,6 +5,8 @@
 #   - 注册机制（_FEATURE_REGISTRY / _SCORE_REGISTRY / 装饰器）
 #   - BaseRuleConfig / BaseRuleFeature / BaseRuleScore（基类）
 #   - Rule1-22Config / Rule1-22Feature / Rule1-22Score（22个规则）
+#   - RibSizeItem / GrooveSizeItem / DecorationItem（Rule100-102 辅助模型）
+#   - Rule100-102Config / Rule100-102Feature / Rule100-102Score（3个纯配置型规则）
 #
 # 注意：
 #   - Feature 类必须使用 @register_rule_feature 装饰器
@@ -14,6 +16,7 @@
 
 from typing import Optional, List, Dict, Type
 from pydantic import BaseModel, Field
+from .enums import RuleTypeEnum
 
 
 # ============================================================
@@ -118,7 +121,8 @@ class BaseRuleConfig(BaseModel):
     """
 
     description: str = Field(description="规则描述")
-    max_score: int = Field(ge=0, description="最大可得分")
+    max_score: Optional[int] = Field(default=None, ge=0, description="最大可得分，None表示非打分规则")
+    rule_type: RuleTypeEnum = Field(description="规则类型枚举")
     @property
     def name(self) -> str:
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
@@ -154,7 +158,7 @@ class BaseRuleScore(BaseModel):
     name属性自动从类名提取（如Rule8Score → rule8）。
     """
 
-    score: int = Field(description="得分")
+    score: Optional[int] = Field(default=None, description="得分，None表示不参与评分")
 
     @property
     def name(self) -> str:
@@ -170,30 +174,37 @@ class Rule1Config(BaseRuleConfig):
     """Rule1：5个花纹RIB无对称原则"""
     description: str = "5个花纹RIB无对称原则"
     max_score: int = 8
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule2Config(BaseRuleConfig):
     """Rule2：中心旋转180°对称花纹"""
     description: str = "中心旋转180°对称花纹"
     max_score: int = 8
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule3Config(BaseRuleConfig):
     """Rule3：中心线镜像对称"""
     description: str = "中心线镜像对称"
     max_score: int = 8
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule4Config(BaseRuleConfig):
     """Rule4：中心线镜像对称可错位"""
     description: str = "中心线镜像对称可错位"
     max_score: int = 8
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule5Config(BaseRuleConfig):
     """Rule5：根据用户指定的对称性进行输出"""
     description: str = "根据用户指定的对称性进行输出"
-    max_score: int = 1
+    max_score: int = 8
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
+
+
 @register_rule_feature
 class Rule1Feature(BaseRuleFeature):
     """Rule1特征：横图拼接子规则，特征字段待业务细化"""
@@ -262,12 +273,14 @@ class Rule6Config(BaseRuleConfig):
     """Rule6：节距纵向关系无缝拼接/图案连续性检测"""
     description: str = "节距纵向关系无缝拼接 / 图案连续性检测"
     max_score: int = 10
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
 
 
 class Rule6AConfig(BaseRuleConfig):
     """Rule6A：拼接节距 - 非打分规则，后续可能摘出为新类"""
     description: str = "拼接节距"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     default_stitch_count: int = Field(description="拼接次数")
     target_resolution_width: int = Field(description="目标分辨率宽度(像素)")
 
@@ -304,6 +317,7 @@ class Rule7Config(BaseRuleConfig):
     """Rule7：主沟宽度/数量 - 现被rule1to5横图拼接、rule12/16/17连续性拼接吸收"""
     description: str = "主沟宽度/数量约束"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     main_groove_width: float = Field(description="主沟宽度(像素)")
     main_groove_width_min: float = Field(description="主沟宽度下限(像素)")
     main_groove_width_max: float = Field(description="主沟宽度上限(像素)")
@@ -337,6 +351,7 @@ class Rule8Config(BaseRuleConfig):
     """Rule8：横沟数量约束"""
     description: str = "横沟数量约束"
     max_score: int = 4
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     groove_width_center: float = Field(gt=0, description="center横沟宽度(像素)")
     groove_width_side: float = Field(gt=0, description="side横沟宽度(像素)")
 
@@ -361,6 +376,7 @@ class Rule9Config(BaseRuleConfig):
     """Rule9：横向钢片数量约束（未实现）"""
     description: str = "横向钢片数量约束"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     transverse_sipe_width: float = Field(description="横向钢片宽度(像素)")
     min_sipe_count_rib1_5: int = Field(description="RIB1/5钢片数量下限")
     max_sipe_count_rib1_5: int = Field(description="RIB1/5钢片数量上限")
@@ -372,6 +388,7 @@ class Rule10Config(BaseRuleConfig):
     """Rule10：横向钢片位置需均分两横沟之间花纹块（未实现）"""
     description: str = "横向钢片位置需均分两横沟之间花纹块"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     transverse_sipe_width: float = Field(description="横向钢片宽度(像素)")
     position_tolerance_ratio: float = Field(description="允许偏离均分位置的比例阈值")
     min_adjacent_groove_count: int = Field(description="至少需要两条横沟才能判断均分")
@@ -414,6 +431,7 @@ class Rule11Config(BaseRuleConfig):
     """Rule11：纵向钢片与纵向细沟数量约束"""
     description: str = "纵向钢片与纵向细沟数量约束"
     max_score: int = 4
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     groove_width: float = Field(description="纵向线条名义宽度(像素)")
     min_width_offset_px: int = Field(description="宽度下限偏移(像素)")
     edge_margin_ratio: float = Field(description="左右边缘排除比例")
@@ -443,6 +461,7 @@ class Rule12Config(BaseRuleConfig):
     """Rule12：两个RIB间横向钢片及横沟连续性占比60%-70%"""
     description: str = "两个RIB间横向钢片及横沟连续性占比60%-70%"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     continuity_mode: str = Field(description="连续性模式：RIB2-RIB3|RIB3-RIB4|RIB2-RIB3-RIB4|none")
     groove_width: float = Field(description="主沟宽度(像素)")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -468,6 +487,7 @@ class Rule13Config(BaseRuleConfig):
     """Rule13：1个节距TDW范围内海陆比在28%-35%"""
     description: str = "1个节距TDW范围内海陆比在28%-35%"
     max_score: int = 2
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     land_ratio_min: float = Field(description="合格陆地占比下限")
     land_ratio_max: float = Field(description="合格陆地占比上限")
 
@@ -492,6 +512,7 @@ class Rule14Config(BaseRuleConfig):
     """Rule14：钢片&横沟与其他线条交点数量<=2"""
     description: str = "钢片&横沟与其他线条交点数量≤2"
     max_score: int = 2
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     max_intersections: int = Field(description="允许的最大交叉点数量")
 
 
@@ -515,6 +536,7 @@ class Rule15Config(BaseRuleConfig):
     """Rule15：各节距中细沟&横沟分割出的花纹块面积比例（未实现）"""
     description: str = "各节距中细沟&横沟分割出的花纹块面积比例≤1:1.2"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.SMALL_IMAGE
     max_block_area_ratio: float = Field(description="各花纹块面积比例上限：1.2")
     min_block_area_px: int = Field(description="过滤噪声用最小花纹块面积(像素)")
     rib_index_start: int = Field(description="RIB起始索引，默认RIB1")
@@ -543,6 +565,7 @@ class Rule16Config(BaseRuleConfig):
     """Rule16：RIB2/3/4上的横沟或横向钢片可任意组合连续性"""
     description: str = "RIB2/3/4上的横沟或横向钢片可任意组合连续性"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     continuity_mode: str = Field(description="三RIB组合模式")
     groove_width: float = Field(description="主沟宽度(像素)")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -552,6 +575,7 @@ class Rule17Config(BaseRuleConfig):
     """Rule17：RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"""
     description: str = "RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     edge_continuity_rib1_rib2: float = Field(ge=0, le=1, description="RIB1-RIB2连续概率")
     edge_continuity_rib4_rib5: float = Field(ge=0, le=1, description="RIB4-RIB5连续概率")
     blend_width: int = Field(description="融合宽度(像素)")
@@ -590,6 +614,7 @@ class Rule18Config(BaseRuleConfig):
     """Rule18：颜色灰度变化用于表征沟的深浅（未实现）"""
     description: str = "颜色灰度变化用于表征沟的深浅"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     enable_gray_depth: bool = Field(description="是否启用灰度深度")
     min_gray_value: int = Field(description="最小灰度值")
     max_gray_value: int = Field(description="最大灰度值")
@@ -619,6 +644,7 @@ class Rule19Config(BaseRuleConfig):
     """Rule19：PDW与TDW之间边缘灰色区域可结合横沟或钢片做装饰性造型 - 纯流程类规则，无评分"""
     description: str = "PDW与TDW之间边缘灰色区域可结合横沟或钢片做装饰性造型"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     tire_design_width: int = Field(description="花纹有效宽度(像素)")
     decoration_border_alpha: float = Field(ge=0, le=1, description="透明度")
     decoration_gray_color: int = Field(description="灰色RGB值")
@@ -644,6 +670,7 @@ class Rule20Config(BaseRuleConfig):
     """Rule20：用户输入文字生成合理的花纹概念图片（未实现）"""
     description: str = "用户输入文字生成合理的花纹概念图片"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.DEFAULT
     prompt: str = Field(description="提示词")
     negative_prompt: Optional[str] = Field(default=None, description="负面提示词")
     num_images: int = Field(description="生成图片数量")
@@ -683,6 +710,7 @@ class Rule22Config(BaseRuleConfig):
     """Rule22：能够根据需要输出指定清晰度的图片 - 现被rule6a纵图拼接resolution配置吸收"""
     description: str = "能够根据需要输出指定清晰度的图片"
     max_score: int = 0
+    rule_type: RuleTypeEnum = RuleTypeEnum.DEFAULT
     target_width: int = Field(description="目标宽度(像素)")
     target_height: int = Field(description="目标高度(像素)")
     keep_aspect_ratio: bool = Field(description="是否保持宽高比")
@@ -715,4 +743,89 @@ class Rule21Score(BaseRuleScore):
 @register_rule_score
 class Rule22Score(BaseRuleScore):
     """Rule22（图片分辨率）评分，已被融入"""
+    pass
+
+
+# ============================================================
+# 第十八部分：Rule100-102 辅助 Item 模型
+# ============================================================
+
+class RibSizeItem(BaseModel):
+    """单个 RIB 的尺寸配置"""
+    rib_name: str = Field(description="RIB名称，如 rib1、rib2")
+    num_pitchs: int = Field(ge=1, description="节距数量")
+    rib_width: int = Field(ge=1, description="纵向图宽度(像素)")
+    rib_height: int = Field(ge=1, description="纵向图高度(像素)")
+
+
+class GrooveSizeItem(BaseModel):
+    """单个主沟的尺寸配置"""
+    groove_width: int = Field(ge=1, description="主沟宽度(像素)")
+    groove_height: int = Field(ge=1, description="主沟高度(像素)")
+
+
+class DecorationItem(BaseModel):
+    """单个装饰的尺寸与透明度配置"""
+    position: str = Field(description="装饰位置：left / right")
+    decoration_width: int = Field(ge=1, description="装饰宽度(像素)")
+    decoration_height: int = Field(ge=1, description="装饰高度(像素)")
+    decoration_opacity: int = Field(ge=0, le=255, description="装饰透明度(0-255)")
+
+
+# ============================================================
+# 第十九部分：Rule100-102 纯配置型规则
+# ============================================================
+
+class Rule100Config(BaseRuleConfig):
+    """Rule100：RIB 节距/尺寸配置"""
+    description: str = "RIB 节距与尺寸配置"
+    rib_number: int = Field(ge=1, description="RIB 数量")
+    rib_sizes: List[RibSizeItem] = Field(min_length=1, description="每个RIB的尺寸配置列表")
+
+
+class Rule101Config(BaseRuleConfig):
+    """Rule101：主沟尺寸配置"""
+    description: str = "主沟尺寸配置"
+    groove_sizes: List[GrooveSizeItem] = Field(min_length=1, description="每个主沟的尺寸配置列表")
+
+
+class Rule102Config(BaseRuleConfig):
+    """Rule102：装饰边框配置"""
+    description: str = "装饰边框尺寸与透明度配置"
+    decorations: List[DecorationItem] = Field(min_length=1, description="左右装饰配置列表")
+
+
+@register_rule_feature
+class Rule100Feature(BaseRuleFeature):
+    """Rule100 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_feature
+class Rule101Feature(BaseRuleFeature):
+    """Rule101 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_feature
+class Rule102Feature(BaseRuleFeature):
+    """Rule102 特征（纯配置型，无特征提取）"""
+    pass
+
+
+@register_rule_score
+class Rule100Score(BaseRuleScore):
+    """Rule100 评分（纯配置型，无评分）"""
+    pass
+
+
+@register_rule_score
+class Rule101Score(BaseRuleScore):
+    """Rule101 评分（纯配置型，无评分）"""
+    pass
+
+
+@register_rule_score
+class Rule102Score(BaseRuleScore):
+    """Rule102 评分（纯配置型，无评分）"""
     pass

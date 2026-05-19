@@ -143,7 +143,7 @@ class ImageEvaluation(BaseModel):
         """重新计算总分"""
         self.current_score = sum(
             r.score.score for r in self.rules
-            if r.score is not None
+            if r.score is not None and r.score.score is not None
         )
 
     @model_validator(mode="after")

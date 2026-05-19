@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>大图生成函数实施设计</title>
+<style>
+  :root {
+    /* Anthropic warm-editorial palette — keep these tokens. */
+    --ivory:    #FAF9F5;   /* page background, not white */
+    --paper:    #FFFFFF;   /* cards & panels sit on ivory */
+    --slate:    #141413;   /* primary text */
+    --clay:     #D97757;   /* terracotta accent */
+    --clay-d:   #B85C3E;
+    --oat:      #E3DACC;   /* warm fill / callout bg */
+    --olive:    #788C5D;   /* success / positive */
+    --rust:     #B04A3F;   /* danger / critical */
+
+    --g100:     #F0EEE6;
+    --g200:     #E6E3DA;
+    --g300:     #D1CFC5;   /* default border */
+    --g500:     #87867F;   /* muted text */
+    --g700:     #3D3D3A;   /* body text alt */
+
+    --serif: ui-serif, Georgia, "Times New Roman", Times, serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono:  ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+
+    --radius-panel: 12px;
+    --radius-row:   8px;
+    --border:       1.5px solid var(--g300);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 56px 24px 120px;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 860px; margin: 0 auto; }
+
+  /* ---------- headings ---------- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--g500);
+    margin-bottom: 12px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(32px, 4.6vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--slate);
+    margin: 0 0 14px;
+  }
+  h1 em {                       /* signature move: clay italic span in titles */
+    font-style: italic;
+    color: var(--clay);
+  }
+  .subtitle {
+    color: var(--g500);
+    font-size: 16px;
+    margin: 0 0 40px;
+    max-width: 60ch;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  h2 + hr.rule {
+    border: none;
+    border-top: 1px solid var(--g300);
+    margin: 0 0 22px;
+  }
+  h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; margin: 1.2rem 0 .4rem; }
+
+  section { margin-bottom: 52px; }
+
+  /* ---------- inline ---------- */
+  p, ul, ol { margin: .5rem 0; }
+  a { color: var(--clay); text-decoration: none; border-bottom: 1px dotted transparent; }
+  a:hover { border-bottom-color: var(--clay); }
+  code, pre { font-family: var(--mono); font-size: .9em; }
+  :not(pre) > code {
+    background: var(--g100);
+    border: 1px solid var(--g300);
+    border-radius: 4px;
+    padding: .05rem .3rem;
+  }
+  pre {
+    background: var(--slate);
+    color: #E8E6DE;
+    border-radius: var(--radius-panel);
+    padding: 18px 20px;
+    overflow: auto;
+    line-height: 1.65;
+  }
+
+  /* ---------- callout ---------- */
+  .callout {
+    border-left: 4px solid var(--clay);
+    background: var(--paper);
+    border-top: var(--border);
+    border-right: var(--border);
+    border-bottom: var(--border);
+    border-radius: 0 var(--radius-panel) var(--radius-panel) 0;
+    padding: 16px 20px;
+    margin: 1rem 0;
+  }
+  .callout.warn { border-left-color: var(--clay-d); }
+  .callout.err  { border-left-color: var(--rust); }
+  .callout.ok   { border-left-color: var(--olive); }
+
+  /* ---------- chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    background: var(--g100);
+    border: var(--border);
+    color: var(--g700);
+    padding: 3px 9px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+  .chip.ok   { background: #E8EEDB; border-color: #C8D3B0; color: #4D5E36; }
+  .chip.warn { background: #F5E4D7; border-color: #E8C6A9; color: #8A4A28; }
+  .chip.err  { background: #F1DBD6; border-color: #E0B2AA; color: #7A2F26; }
+
+  /* ---------- grid / cards ---------- */
+  .grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    margin: 1rem 0;
+  }
+  .card {
+    background: var(--paper);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    padding: 20px 22px;
+  }
+
+  /* ---------- tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--paper);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+  thead th {
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--g500);
+    background: var(--g100);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--g300);
+  }
+  tbody td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--g100);
+    font-size: 14px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- details / collapsibles ---------- */
+  details {
+    border: var(--border);
+    border-radius: var(--radius-row);
+    padding: .6rem 1rem;
+    margin: .6rem 0;
+    background: var(--paper);
+  }
+  details[open] { background: var(--g100); }
+  summary { cursor: pointer; font-weight: 600; outline: none; }
+
+  /* ---------- buttons ---------- */
+  button {
+    font: inherit;
+    cursor: pointer;
+    padding: .5rem .95rem;
+    border-radius: var(--radius-row);
+    border: var(--border);
+    background: var(--paper);
+    color: var(--slate);
+  }
+  button:hover { background: var(--g100); }
+  button.primary {
+    background: var(--clay);
+    color: var(--paper);
+    border-color: var(--clay);
+  }
+  button.primary:hover { background: var(--clay-d); border-color: var(--clay-d); }
+
+  svg { max-width: 100%; height: auto; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--g300);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--g500);
+  }
+
+  @media (max-width: 720px) { body { padding: 32px 18px 96px; } }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <div class="eyebrow">IMPLEMENTATION DESIGN · IMAGE GENERATION</div>
+    <h1>大图生成函数实施设计</h1>
+    <p class="subtitle">基于PRD文档和项目架构规范，实现完整的图片处理流程：RIB预处理 → 主沟预处理 → 装饰预处理 → 参数验证 → 横向拼接 → 装饰覆盖</p>
+
+    <div class="callout">
+      <strong>TL;DR.</strong> 实现<code>generate_large_image_from_lineage</code>函数，采用三层架构设计（入口层、核心算法层、工具层），统一使用OpenCV (cv2)进行图像处理。核心创新点包括：<code>apply_single_rib_operation</code>（单个操作执行器）和<code>apply_rib_operations_sequence</code>（操作序列执行器），支持复杂的RIB操作组合。
+    </div>
+
+    <section>
+      <h2>1. 设计概述</h2>
+      <hr class="rule">
+
+      <div class="grid">
+        <article class="card">
+          <h3>技术选型决策 <span class="chip">cv2</span></h3>
+          <p style="color: var(--g500);">统一使用OpenCV (cv2)，项目已有的<code>src/utils/image_utils.py</code>完全基于cv2，所有RIB原子操作均可通过cv2实现。</p>
+        </article>
+        <article class="card">
+          <h3>数据格式 <span class="chip">np.ndarray</span></h3>
+          <p style="color: var(--g500);">统一使用<code>np.ndarray</code> (BGR格式) 进行图像处理。</p>
+        </article>
+        <article class="card">
+          <h3>参数简化</h3>
+          <p style="color: var(--g500);">移除<code>output_format</code>参数，输出大图为base64字符串，无需指定格式参数。</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. 三层架构设计</h2>
+      <hr class="rule">
+
+      <div class="grid">
+        <article class="card">
+          <h3>入口层 <span class="chip">src/processing/</span></h3>
+          <p style="color: var(--g500);">业务逻辑层，处理业务数据类，协调处理流程。</p>
+        </article>
+        <article class="card">
+          <h3>核心算法层 <span class="chip">src/core/</span></h3>
+          <p style="color: var(--g500);">纯算法层，实现纯粹的图像操作算法，输入输出为基本类型。</p>
+        </article>
+        <article class="card">
+          <h3>工具层 <span class="chip">src/utils/</span></h3>
+          <p style="color: var(--g500);">提供基础图像转换和处理工具（已存在）。</p>
+        </article>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>层级</th>
+            <th>文件位置</th>
+            <th>职责</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>入口函数</td>
+            <td><code>src/processing/image_processing.py</code></td>
+            <td>对外暴露的接口函数</td>
+          </tr>
+          <tr>
+            <td>业务处理函数</td>
+            <td><code>src/processing/image_processing.py</code></td>
+            <td>处理业务数据类，协调处理流程</td>
+          </tr>
+          <tr>
+            <td>核心算法</td>
+            <td><code>src/core/image_operation.py</code></td>
+            <td>实现纯粹的图像操作算法</td>
+          </tr>
+          <tr>
+            <td>测试文件</td>
+            <td><code>tests/unittests/processing/test_image_processing.py</code></td>
+            <td>单元测试覆盖</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. 核心算法层实现</h2>
+      <hr class="rule">
+
+      <h3>关键创新：双层执行器设计</h3>
+
+      <div class="grid">
+        <article class="card">
+          <h3>单个操作执行器</h3>
+          <p style="color: var(--g500);"><code>apply_single_rib_operation</code><br>执行单个RIB原子操作，处理14种不同的操作类型。</p>
+        </article>
+        <article class="card">
+          <h3>操作序列执行器</h3>
+          <p style="color: var(--g500);"><code>apply_rib_operations_sequence</code><br>按顺序执行多个操作，支持复杂组合如<code>("resize_horizontal_2x", "left")</code>。</p>
+        </article>
+      </div>
+
+      <details>
+        <summary>单个操作执行器完整实现</summary>
+        <pre><code>def apply_single_rib_operation(image: np.ndarray, operation: RibOperation) -> np.ndarray:
+    """实现所有RIB原子操作"""
+    h, w = image.shape[:2]
+
+    if operation == RibOperation.NONE:
+        return image.copy()
+
+    elif operation == RibOperation.FLIP_LR:
+        # 左右对称
+        return cv2.flip(image, 1)
+
+    elif operation == RibOperation.FLIP:
+        # 旋转180度
+        return cv2.rotate(image, cv2.ROTATE_180)
+
+    elif operation == RibOperation.LEFT_FLIP_LR:
+        # 左半左右对称覆盖右侧
+        left_half = image[:, :w//2]
+        flipped_left = cv2.flip(left_half, 1)
+        result = image.copy()
+        result[:, w//2:] = flipped_left[:, :w - w//2]  # 处理奇数宽度
+        return result
+
+    elif operation == RibOperation.LEFT_FLIP:
+        # 左半旋转180覆盖右侧
+        left_half = image[:, :w//2]
+        rotated_left = cv2.rotate(left_half, cv2.ROTATE_180)
+        result = image.copy()
+        result[:, w//2:] = rotated_left[:, :w - w//2]
+        return result
+
+    elif operation == RibOperation.RESIZE_HORIZONTAL_2X:
+        # 横向拉伸2倍
+        return cv2.resize(image, (w * 2, h))
+
+    elif operation == RibOperation.LEFT:
+        # 截取左边 (等同于 LEFT_1_1)
+        return image[:, :w//2]
+
+    elif operation == RibOperation.RIGHT:
+        # 截取右边 (等同于 RIGHT_1_1)
+        return image[:, w//2:]
+
+    elif operation == RibOperation.RESIZE_HORIZONTAL_1_5X:
+        # 横向拉伸1.5倍
+        return cv2.resize(image, (int(w * 1.5), h))
+
+    elif operation == RibOperation.RESIZE_HORIZONTAL_3X:
+        # 横向拉伸3倍
+        return cv2.resize(image, (w * 3, h))
+
+    elif operation == RibOperation.LEFT_2_3:
+        # 截取左2/3
+        return image[:, :int(w * 2/3)]
+
+    elif operation == RibOperation.RIGHT_2_3:
+        # 截取右2/3
+        return image[:, int(w * 1/3):]
+
+    elif operation == RibOperation.LEFT_1_3:
+        # 截取左1/3
+        return image[:, :int(w * 1/3)]
+
+    elif operation == RibOperation.RIGHT_1_3:
+        # 截取右1/3
+        return image[:, int(w * 2/3):]
+
+    elif operation == RibOperation._RESIZE_AS_FIRST_RIB:
+        # 图片大小向第一张图对齐 - 此操作需要额外参数，在拼接后处理中实现
+        raise NotImplementedError("_RESIZE_AS_FIRST_RIB 需要在拼接上下文中处理")
+
+    else:
+        raise ValueError(f"Unsupported operation: {operation}")</code></pre>
+      </details>
+
+      <details>
+        <summary>操作序列执行器实现</summary>
+        <pre><code>def apply_rib_operations_sequence(image: np.ndarray, operations: Tuple[RibOperation, ...]) -> np.ndarray:
+    """按顺序执行RIB操作序列
+
+    示例:
+    - ("resize_horizontal_2x", "left") → 先横向拉伸2倍，再截取左边
+    - ("",) 或 () → 无操作
+
+    Args:
+        image: 输入图像 (np.ndarray)
+        operations: 操作序列元组
+
+    Returns:
+        np.ndarray: 处理后的图像
+    """
+    if not operations:
+        return image.copy()
+
+    current_image = image.copy()
+    for operation in operations:
+        if operation != RibOperation.NONE:  # 跳过空操作
+            current_image = apply_single_rib_operation(current_image, operation)
+
+    return current_image</code></pre>
+      </details>
+    </section>
+
+    <section>
+      <h2>4. 架构调用关系</h2>
+      <hr class="rule">
+
+      <div class="callout">
+        <strong>层级调用关系.</strong>
+        <pre><code>src/processing/image_processing.py (入口和业务逻辑)
+    ↓ 调用
+src/core/image_operation.py (纯算法实现)
+    ↓ 调用
+src/utils/image_utils.py (基础工具 - 已存在)
+    ↓ 依赖
+OpenCV (cv2) - 图像处理库
+numpy - 数组处理库</code></pre>
+      </div>
+
+      <details>
+        <summary>详细调用关系图</summary>
+        <pre><code>┌─────────────────────────────────────────────────────────────────┐
+│                  src/processing/image_processing.py             │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ generate_large_image_from_lineage()                     │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ _process_rib_images │  │ _process_main_groove│          │
+│  └─────────────────────┘  └─────────────────────┘          │
+│              │                       │                      │
+│              ▼                       ▼                      │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ _process_decoration │  │ _validate_parameters│          │
+│  └─────────────────────┘  └─────────────────────┘          │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ _build_concatenation_sequence → horizontal_concatenate  │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ _apply_decorations_to_big_image → overlay_decoration    │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    src/core/image_operation.py                  │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ apply_rib_operations_sequence()                         │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ apply_single_rib_operation()                            │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ repeat_vertically   │  │ apply_opacity       │          │
+│  └─────────────────────┘  └─────────────────────┘          │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ horizontal_concat   │  │ overlay_decoration  │          │
+│  └─────────────────────┘  └─────────────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    src/utils/image_utils.py                     │
+│                                                                 │
+│  ┌─────────────────────┐  ┌─────────────────────┐          │
+│  │ base64_to_ndarray   │  │ ndarray_to_base64   │          │
+│  └─────────────────────┘  └─────────────────────┘          │
+│              │                                               │
+│              ▼                                               │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │ resize_image                                            │  │
+│  └─────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+      </details>
+    </section>
+
+    <section>
+      <h2>5. 测试策略</h2>
+      <hr class="rule">
+
+      <h3>核心算法测试（src/core/）</h3>
+      <ul>
+        <li><strong>单个操作测试</strong>: 测试每个RIB原子操作的正确性</li>
+        <li><strong>操作序列测试</strong>: 测试组合操作如<code>("resize_horizontal_2x", "left")</code></li>
+        <li><strong>边界条件</strong>: 测试各种尺寸、格式、操作组合</li>
+        <li><strong>性能测试</strong>: 验证大图像处理的内存使用</li>
+      </ul>
+
+      <h3>业务逻辑测试（src/processing/）</h3>
+      <ul>
+        <li><strong>RIB预处理</strong>: 测试各种操作组合和跳过逻辑</li>
+        <li><strong>主沟预处理</strong>: 测试resize功能</li>
+        <li><strong>装饰预处理</strong>: 测试透明度应用</li>
+        <li><strong>参数验证</strong>: 测试各种验证规则</li>
+        <li><strong>横向拼接</strong>: 测试不同RIB数量的拼接序列构建</li>
+        <li><strong>装饰覆盖</strong>: 测试双侧覆盖逻辑</li>
+      </ul>
+
+      <div class="callout ok">
+        <strong>集成测试.</strong> 使用PRD中提供的示例数据进行端到端测试，验证输出大图与预期结果的一致性。
+      </div>
+    </section>
+
+    <section>
+      <h2>6. 实施步骤</h2>
+      <hr class="rule">
+
+      <ol>
+        <li>创建<code>src/core/image_operation.py</code>文件，实现纯算法函数
+          <ul>
+            <li>实现<code>apply_single_rib_operation</code>（单个操作执行器）</li>
+            <li>实现<code>apply_rib_operations_sequence</code>（操作序列执行器）</li>
+            <li>实现其他辅助算法函数</li>
+          </ul>
+        </li>
+        <li>创建<code>src/processing/image_processing.py</code>文件，实现业务处理函数</li>
+        <li>实现入口函数<code>generate_large_image_from_lineage</code></li>
+        <li>编写核心算法单元测试</li>
+        <li>编写业务逻辑单元测试</li>
+        <li>进行集成测试验证</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>7. 风险与缓解措施</h2>
+      <hr class="rule">
+
+      <div class="grid">
+        <article class="card">
+          <h3>风险点 <span class="chip err">注意</span></h3>
+          <ul style="color: var(--g500); margin: 0;">
+            <li>图像尺寸计算错误导致拼接失败（特别是奇数宽度处理）</li>
+            <li>透明度处理可能影响图像质量</li>
+            <li>大图像处理可能导致内存占用过高</li>
+            <li><code>_RESIZE_AS_FIRST_RIB</code>操作的上下文依赖</li>
+            <li>操作序列中的空操作处理</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>缓解措施 <span class="chip ok">解决方案</span></h3>
+          <ul style="color: var(--g500); margin: 0;">
+            <li>严格的参数验证</li>
+            <li>充分的单元测试覆盖（分别测试core层和processing层）</li>
+            <li>调试模式下的详细日志记录</li>
+            <li>明确的接口契约（core层使用基本类型，processing层使用数据类）</li>
+            <li>对奇数尺寸的特殊处理逻辑</li>
+            <li>在<code>apply_rib_operations_sequence</code>中正确处理空操作</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      Generated with the html-over-markdown skill.
+    </footer>
+
+  </div>
+</body>
+</html>

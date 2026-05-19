@@ -12,6 +12,20 @@ from pathlib import Path
 from typing import Optional
 
 
+# 项目根目录（logger.py 位于 src/utils/ 下，上溯两级即为项目根）
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _ensure_file_handler(logger: logging.Logger, level: int, formatter: logging.Formatter) -> None:
+    """确保 logger 拥有文件 handler，写入 .logs/project.log。"""
+    _log_dir = _PROJECT_ROOT / ".logs"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _file_handler = logging.FileHandler(str(_log_dir / "project.log"), encoding="utf-8")
+    _file_handler.setLevel(level)
+    _file_handler.setFormatter(formatter)
+    logger.addHandler(_file_handler)
+
+
 def setup_logger(
     name: str = "giti_tire",
     level: str = "INFO",
@@ -21,10 +35,13 @@ def setup_logger(
     """
     设置并返回一个配置好的日志记录器。
 
+    所有项目日志统一写入 .logs/project.log（文件 handler 等级为 DEBUG，
+    保证 debug 级别日志也能落盘），控制台输出等级由 level 参数控制。
+
     Args:
         name: 日志记录器名称
         level: 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: 日志文件路径（可选）
+        log_file: 日志文件路径（可选，不影响默认 .logs/project.log）
         console_output: 是否输出到控制台
 
     Returns:
@@ -42,9 +59,11 @@ def setup_logger(
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    # 文件处理器
+    # —— 默认文件 handler：所有日志统一写入 .logs/project.log ——
+    _ensure_file_handler(logger, logging.DEBUG, formatter)
+
+    # 显式指定的 log_file（额外输出）
     if log_file:
-        # 确保日志目录存在
         log_path = Path(log_file)
         log_dir = log_path.parent
         if log_dir != Path('.') and not log_dir.exists():
