@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "image_path": "center_inf/0.png",
+      "region": "center",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_intersections": 2
+      },
+      "score": {
+        "score": 2
+      }
+    },
+    {
+      "image_path": "center_inf/2.png",
+      "region": "center",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_intersections": 0
+      },
+      "score": {
+        "score": 2
+      }
+    },
+    {
+      "image_path": "side_inf/0.png",
+      "region": "side",
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "num_intersections": 0
+      },
+      "score": {
+        "score": 2
+      }
+    }
+  ]
+}
