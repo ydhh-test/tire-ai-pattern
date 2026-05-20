@@ -7,8 +7,8 @@ _EXECUTOR_MODULES = {
     "Rule1Executor": "src.rules.executors.rule1",
     "Rule2Executor": "src.rules.executors.rule2",
     "Rule3Executor": "src.rules.executors.rule3",
-    "Rule4Executor": "src.rules.executors.rule4",
-    "Rule5Executor": "src.rules.executors.rule5",
+    # "Rule4Executor": "src.rules.executors.rule4",  # 已注释
+    # "Rule5Executor": "src.rules.executors.rule5",  # 已注释
     "Rule6Executor": "src.rules.executors.rule6",
     "Rule6AExecutor": "src.rules.executors.rule6a",
     "Rule7Executor": "src.rules.executors.rule7",

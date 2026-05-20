@@ -177,61 +177,64 @@ class BaseRuleScore(BaseModel):
 # ============================================================
 
 class Rule1Config(BaseRuleConfig):
-    """Rule1：5个花纹RIB无对称原则"""
-    description: str = "5个花纹RIB无对称原则"
-    max_score: int = 8
+    """Rule1：rib无对称"""
+    description: str = "rib无对称"
+    max_score: int = 10
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule2Config(BaseRuleConfig):
-    """Rule2：中心旋转180°对称花纹"""
-    description: str = "中心旋转180°对称花纹"
-    max_score: int = 8
+    """Rule2：rib中心对称"""
+    description: str = "rib中心对称"
+    max_score: int = 10
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
 class Rule3Config(BaseRuleConfig):
-    """Rule3：中心线镜像对称"""
-    description: str = "中心线镜像对称"
-    max_score: int = 8
+    """Rule3：rib左右对称"""
+    description: str = "rib左右对称"
+    max_score: int = 10
+    rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
 
 
-class Rule4Config(BaseRuleConfig):
-    """Rule4：中心线镜像对称可错位"""
-    description: str = "中心线镜像对称可错位"
-    max_score: int = 8
+# class Rule4Config(BaseRuleConfig):
+#     """Rule4：未实现"""
+#     description: str = "未实现"
+#     # max_score 继承 BaseRuleConfig，默认 None
 
 
-class Rule5Config(BaseRuleConfig):
-    """Rule5：根据用户指定的对称性进行输出"""
-    description: str = "根据用户指定的对称性进行输出"
-    max_score: int = 1
+# class Rule5Config(BaseRuleConfig):
+#     """Rule5：分数已合并入rule1～4"""
+#     description: str = "分数已合并入rule1～4"
+#     # max_score 继承 BaseRuleConfig，默认 None
 @register_rule_feature
 class Rule1Feature(BaseRuleFeature):
-    """Rule1特征：横图拼接子规则，特征字段待业务细化"""
-    pass
+    """Rule1特征：rib无对称"""
+    is_active: bool = Field(description="是否生效")
 
 
 @register_rule_feature
 class Rule2Feature(BaseRuleFeature):
-    """Rule2特征：横图拼接子规则，特征字段待业务细化"""
-    pass
+    """Rule2特征：rib中心对称"""
+    is_active: bool = Field(description="是否生效")
 
 
 @register_rule_feature
 class Rule3Feature(BaseRuleFeature):
-    """Rule3特征：横图拼接子规则，特征字段待业务细化"""
-    pass
+    """Rule3特征：rib左右对称"""
+    is_active: bool = Field(description="是否生效")
 
 
-@register_rule_feature
-class Rule4Feature(BaseRuleFeature):
-    """Rule4特征：横图拼接子规则，特征字段待业务细化"""
-    pass
+# @register_rule_feature
+# class Rule4Feature(BaseRuleFeature):
+#     """Rule4特征：未实现"""
+#     pass
 
 
-@register_rule_feature
-class Rule5Feature(BaseRuleFeature):
-    """Rule5特征：横图拼接子规则，特征字段待业务细化"""
-    pass
+# @register_rule_feature
+# class Rule5Feature(BaseRuleFeature):
+#     """Rule5特征：分数已合并入rule1～4"""
+#     pass
 
 
 @register_rule_score
@@ -252,16 +255,16 @@ class Rule3Score(BaseRuleScore):
     pass
 
 
-@register_rule_score
-class Rule4Score(BaseRuleScore):
-    """Rule4评分"""
-    pass
+# @register_rule_score
+# class Rule4Score(BaseRuleScore):
+#     """Rule4评分：未实现"""
+#     pass
 
 
-@register_rule_score
-class Rule5Score(BaseRuleScore):
-    """Rule5评分"""
-    pass
+# @register_rule_score
+# class Rule5Score(BaseRuleScore):
+#     """Rule5评分：分数已合并入rule1～4"""
+#     pass
 
 
 # ============================================================
@@ -451,18 +454,18 @@ class Rule11Score(BaseRuleScore):
 # ============================================================
 
 class Rule12Config(BaseRuleConfig):
-    """Rule12：两个RIB间横向钢片及横沟连续性占比60%-70%"""
-    description: str = "两个RIB间横向钢片及横沟连续性占比60%-70%"
-    max_score: int = 0
-    continuity_mode: str = Field(description="连续性模式：RIB2-RIB3|RIB3-RIB4|RIB2-RIB3-RIB4|none")
-    groove_width: float = Field(description="主沟宽度(像素)")
-    blend_width: int = Field(description="融合宽度(像素)")
+    """Rule12：两个RIB间横向钢片及横沟连续性占比是否满足要求"""
+    description: str = "两个RIB间横向钢片及横沟连续性占比是否满足要求"
+    max_score: int = 6
+    continuity_ratio_upper: float = Field(description="连续性占比上界")
+    continuity_ratio_lower: float = Field(description="连续性占比下界")
+    continuity_mode_list: List[str] = Field(description="连续性模式列表")
 
 
 @register_rule_feature
 class Rule12Feature(BaseRuleFeature):
-    """Rule12特征：RIB横向连续性"""
-    is_continuous: bool = Field(description="是否连续")
+    """Rule12特征：RIB横向连续性占比"""
+    continuity_ratio: float = Field(description="连续性占比")
 
 
 @register_rule_score
@@ -551,21 +554,17 @@ class Rule15Score(BaseRuleScore):
 # ============================================================
 
 class Rule16Config(BaseRuleConfig):
-    """Rule16：RIB2/3/4上的横沟或横向钢片可任意组合连续性"""
-    description: str = "RIB2/3/4上的横沟或横向钢片可任意组合连续性"
-    max_score: int = 0
-    continuity_mode: str = Field(description="三RIB组合模式")
-    groove_width: float = Field(description="主沟宽度(像素)")
-    blend_width: int = Field(description="融合宽度(像素)")
+    """Rule16：中心RIB上的横沟或横向钢片可任意组合连续性"""
+    description: str = "中心RIB上的横沟或横向钢片可任意组合连续性"
+    max_score: int = 4
+    continuity_mode_list: List[str] = Field(description="连续性模式列表")
 
 
 class Rule17Config(BaseRuleConfig):
-    """Rule17：RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"""
-    description: str = "RIB1与RIB2、RIB4与RIB5可连续可不连续，各占50%"
-    max_score: int = 0
-    edge_continuity_rib1_rib2: float = Field(ge=0, le=1, description="RIB1-RIB2连续概率")
-    edge_continuity_rib4_rib5: float = Field(ge=0, le=1, description="RIB4-RIB5连续概率")
-    blend_width: int = Field(description="融合宽度(像素)")
+    """Rule17：边缘RIB上的横沟或横向钢片可任意组合连续性"""
+    description: str = "边缘RIB上的横沟或横向钢片可任意组合连续性"
+    max_score: int = 6
+    continuity_mode_list: List[str] = Field(description="连续性模式列表")
 
 
 @register_rule_feature
@@ -576,9 +575,8 @@ class Rule16Feature(BaseRuleFeature):
 
 @register_rule_feature
 class Rule17Feature(BaseRuleFeature):
-    """Rule17特征：RIB1/2与RIB4/5概率连续"""
-    rib1_rib2_continuous: bool = Field(description="RIB1-RIB2是否连续")
-    rib4_rib5_continuous: bool = Field(description="RIB4-RIB5是否连续")
+    """Rule17特征：边缘RIB任意组合连续性"""
+    is_continuous: bool = Field(description="是否连续")
 
 
 @register_rule_score
