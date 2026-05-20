@@ -225,7 +225,7 @@ def _build_concatenation_sequence(
 
     # 验证数量匹配
     if groove_count != rib_count - 1:
-        raise ValueError(f"主沟数量({grove_count})应等于RIB数量({rib_count})减1")
+        raise ValueError(f"主沟数量({groove_count})应等于RIB数量({rib_count})减1")
 
     # 构建序列
     for i in range(rib_count):
