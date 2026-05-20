@@ -16,6 +16,7 @@ from src.models.enums import RibOperation, SourceTypeEnum, StitchingSchemeName
 from src.models.image_models import (
     ImageLineage,
     SmallImage,
+    BigImage
 )
 from src.models.template_registry import get_stitching_templates
 from src.models.rule_models import (
@@ -751,10 +752,11 @@ def _log_lineage_detail(lineage: ImageLineage) -> None:
 
 
 def generate_stitch_scheme(
+    big_image: BigImage,
     small_images: Sequence[SmallImage],
     rules_config: Sequence[BaseRuleConfig],
     scheme_rank: int,
-) -> ImageLineage:
+) -> BigImage:
     """根据小图、规则配置和排名生成指定的拼接 lineage。"""
 
     if scheme_rank < 1:
@@ -894,4 +896,6 @@ def generate_stitch_scheme(
     )
     _log_lineage_detail(lineage)
 
-    return lineage
+    big_image.lineage = lineage
+
+    return big_image

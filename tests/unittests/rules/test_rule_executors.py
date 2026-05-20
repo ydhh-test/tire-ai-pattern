@@ -7,8 +7,8 @@ from src.models.rule_models import (
     Rule1Config,
     Rule2Config,
     Rule3Config,
-    Rule4Config,
-    Rule5Config,
+    # Rule4Config,  # 已注释
+    # Rule5Config,  # 已注释
     Rule6AConfig,
     Rule6Config,
     Rule7Config,
@@ -40,8 +40,8 @@ ALL_RULE_CONFIGS = [
     Rule1Config,
     Rule2Config,
     Rule3Config,
-    Rule4Config,
-    Rule5Config,
+    # Rule4Config,  # 已注释
+    # Rule5Config,  # 已注释
     Rule6Config,
     Rule6AConfig,
     Rule7Config,
@@ -115,13 +115,19 @@ def test_all_rule_executors_are_registered():
 
 def test_unimplemented_rule_uses_base_not_implemented_methods():
     """验证未落地规则使用 RuleExecutor 默认未实现方法。"""
-    executor = get_rule_executor(Rule1Config().name)
+    # Rule20 是一个未实现功能的规则，使用基类的默认实现
+    config = Rule20Config(
+        prompt="test",
+        num_images=1,
+        output_width=512,
+        output_height=512,
+    )
+    executor = get_rule_executor(config.name)
     image = make_big_image()
-    config = Rule1Config()
 
     assert type(executor).exec_feature is RuleExecutor.exec_feature
     assert type(executor).exec_score is RuleExecutor.exec_score
-    with pytest.raises(NotImplementedError, match="rule1.exec_feature is not implemented"):
+    with pytest.raises(NotImplementedError, match="rule20.exec_feature is not implemented"):
         executor.exec_feature(image, config)
 
 

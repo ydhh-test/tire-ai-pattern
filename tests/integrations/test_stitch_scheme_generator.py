@@ -13,6 +13,7 @@ from src.models.enums import (
     RibOperation,
 )
 from src.models.image_models import (
+    BigImage,
     ImageLineage,
     ImageBiz,
     ImageEvaluation,
@@ -80,6 +81,26 @@ def make_small_image(region: RegionEnum, payload: str, score: int) -> SmallImage
         ),
     )
 
+
+def make_big_image() -> BigImage:
+    return BigImage(
+        image_base64="data:image/png;base64,big",
+        meta=ImageMeta(
+            width=10,
+            height=10,
+            channels=3,
+            mode=ImageModeEnum.RGB,
+            format=ImageFormatEnum.PNG,
+            size=10,
+        ),
+        biz=ImageBiz(
+            level=LevelEnum.BIG,
+            region=RegionEnum.CENTER,
+            source_type=SourceTypeEnum.ORIGINAL,
+        ),
+    )
+
+
 def test_generate_stitch_scheme(small_images=None, rules_config=None):
     if not small_images:
         small_images = [
@@ -121,7 +142,10 @@ def test_generate_stitch_scheme(small_images=None, rules_config=None):
         ]
 
     
-    generate_stitch_scheme(small_images, rules_config, 1)
+    result = generate_stitch_scheme(make_big_image(), small_images, rules_config, 1)
+
+    assert isinstance(result, BigImage)
+    assert isinstance(result.lineage, ImageLineage)
 
 
 def test_sort_and_lineage():

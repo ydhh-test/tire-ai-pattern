@@ -11,7 +11,7 @@ RULE8_CONFIG_DICT = {"description": "横沟数量约束", "max_score": 4, "groov
 
 RULE11_CONFIG_DICT = {"description": "test", "max_score": 4, "groove_width": 5.0, "min_width_offset_px": 1, "edge_margin_ratio": 0.1, "min_segment_length_ratio": 0.5, "max_angle_from_vertical": 15.0, "max_count_center": 3, "max_count_side": 2}
 
-RULE17_CONFIG_DICT = {"description": "", "max_score": 0, "edge_continuity_rib1_rib2": 0.5, "edge_continuity_rib4_rib5": 0.5, "blend_width": 10}
+RULE17_CONFIG_DICT = {"description": "", "max_score": 6, "continuity_mode_list": []}
 
 
 # ===================== Field 约束测试 =====================
@@ -19,22 +19,19 @@ RULE17_CONFIG_DICT = {"description": "", "max_score": 0, "edge_continuity_rib1_r
 class TestFieldConstraints:
     """Field 约束测试"""
 
-    def test_rule17_edge_continuity_valid(self):
-        """✅ 校验规则 14：edge_continuity = 0.5"""
+    def test_rule17_continuity_mode_list_valid(self):
+        """✅ 校验 Rule17Config 使用 continuity_mode_list 字段"""
         from src.models.rule_models import Rule17Config
         input_dict = RULE17_CONFIG_DICT
-        expected_dict = {"edge_continuity_rib1_rib2": 0.5}
-
         config = Rule17Config.model_validate(input_dict)
-        assert config.edge_continuity_rib1_rib2 == expected_dict["edge_continuity_rib1_rib2"]
+        assert config.continuity_mode_list == []
+        assert config.max_score == 6
 
-    def test_rule17_edge_continuity_over(self):
-        """❌ 校验规则 14：edge_continuity > 1"""
+    def test_rule17_continuity_mode_list_default(self):
+        """✅ 校验 Rule17Config 默认 continuity_mode_list 类型为 List[str]"""
         from src.models.rule_models import Rule17Config
-        input_dict = {**RULE17_CONFIG_DICT, "edge_continuity_rib1_rib2": 1.5}
-
-        with pytest.raises(ValueError):
-            Rule17Config.model_validate(input_dict)
+        config = Rule17Config.model_validate(RULE17_CONFIG_DICT)
+        assert isinstance(config.continuity_mode_list, list)
 
     def test_rule8_groove_width_valid(self):
         """✅ 校验规则 15：groove_width > 0"""

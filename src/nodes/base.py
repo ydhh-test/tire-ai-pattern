@@ -14,8 +14,8 @@ from src.models.rule_models import (
     Rule1Config,
     Rule2Config,
     Rule3Config,
-    Rule4Config,
-    Rule5Config,
+    # Rule4Config,  # 已注释
+    # Rule5Config,  # 已注释
     Rule6AConfig,
     Rule6Config,
     Rule7Config,
@@ -47,8 +47,8 @@ STITCH_SCHEME_GENERATOR_CONFIGS: list[type[BaseRuleConfig]] = [
     Rule1Config,
     Rule2Config,
     Rule3Config,
-    Rule4Config,
-    Rule5Config,
+    # Rule4Config,  # 已注释
+    # Rule5Config,  # 已注释
     Rule6AConfig,
     Rule7Config,
     Rule12Config,
