@@ -42,22 +42,27 @@ def test_rule19_executor_is_registered_by_config_name():
     """验收 Rule19Executor 可以通过 Rule19Config.name 从注册表读取。"""
 
     config = make_rule19_config()
+    expected_executor_type = Rule19Executor
+
     executor = get_rule_executor(config.name)
-    assert isinstance(executor, Rule19Executor)
+
+    assert isinstance(executor, expected_executor_type)
 
 
 def test_rule19_config_is_selected_by_stitch_scheme_node(test_rule_config):
     """验收 Node 层规则过滤会把 Rule19 分配给拼接方案生成节点。"""
 
     rule19_config = make_rule19_config()
+    expected_test_rule_executor_type = RuleExecutor
+    expected_selected_configs = [rule19_config]
 
     selected_configs = select_node_configs(
         [test_rule_config, rule19_config],
         STITCH_SCHEME_GENERATOR_CONFIGS,
     )
 
-    assert isinstance(get_rule_executor(test_rule_config.name), RuleExecutor)
-    assert selected_configs == [rule19_config]
+    assert isinstance(get_rule_executor(test_rule_config.name), expected_test_rule_executor_type)
+    assert selected_configs == expected_selected_configs
 
 
 @pytest.mark.skip(reason="Rule19 当前未接入真实算法；接入算法后启用并补全本验收用例")
@@ -75,22 +80,27 @@ def test_rule19_exec_feature():
     # 示例结构：
     # calls = []
     #
+    # expected_algorithm_call_count = 1
+    # expected_algorithm_call = ("data:image/png;base64,original", 80, 0.5, 128)
+    # expected_decoration_border_created = True
+    # expected_decoration_border_width = 12
     # def fake_algorithm(image_base64: str, tire_design_width: int, alpha: float, gray_color: int):
-    #     calls.append((image_base64, tire_design_width, alpha, gray_color))
+    #     actual_algorithm_call = (image_base64, tire_design_width, alpha, gray_color)
+    #     calls.append(actual_algorithm_call)
     #     return {
-    #         "decoration_border_created": True,
-    #         "decoration_border_width": 12,
+    #         "decoration_border_created": expected_decoration_border_created,
+    #         "decoration_border_width": expected_decoration_border_width,
     #     }
     #
     # monkeypatch.setattr("src.rules.executors.rule19.algorithm_func", fake_algorithm)
     #
     # feature = Rule19Executor().exec_feature(image, config)
     #
-    # assert len(calls) == 1
-    # assert calls[0] == ("data:image/png;base64,original", 80, 0.5, 128)
+    # assert len(calls) == expected_algorithm_call_count
+    # assert calls[0] == expected_algorithm_call
     # assert isinstance(feature, Rule19Feature)
-    # assert feature.decoration_border_created is True
-    # assert feature.decoration_border_width == 12
+    # assert feature.decoration_border_created is expected_decoration_border_created
+    # assert feature.decoration_border_width == expected_decoration_border_width
 
 
 @pytest.mark.skip(reason="Rule19 当前未接入真实打分逻辑；接入后启用并补全本验收用例")
@@ -105,6 +115,8 @@ def test_rule19_exec_score():
     """
 
     # 示例结构：
+    # expected_score = 0
+    #
     # score = Rule19Executor().exec_score(config, feature)
     #
     # assert isinstance(score, Rule19Score)

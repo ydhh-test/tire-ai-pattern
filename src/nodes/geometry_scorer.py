@@ -10,8 +10,9 @@ from typing import Dict, List, Tuple, Optional
 
 from src.common.exceptions import InputDataError
 from src.models.enums import RuleTypeEnum
-from src.models.image_models import BigImage, SmallImage, ImageLineage
+from src.models.image_models import BigImage, SmallImage, ImageLineage, ImageScore
 from src.models.rule_models import BaseRuleConfig
+from src.models.tire_struct import TireStruct
 from src.nodes.base import GEOMETRY_SCORER_CONFIGS, RuleRunner, recalculate_current_score, select_node_configs
 
 
@@ -92,15 +93,86 @@ def score_geometry(
 
 
 def calculate_geometric_scores(
+    tire_struct: TireStruct,
+) -> TireStruct:
+    """
+    几何合理性业务评分封装函数（类实现），主函数
+
+    输入为 TireStruct，输出为 TireStruct，自动从 TireStruct 中提取参数并调用核心评分函数。
+
+    Args:
+        tire_struct: 包含大图、小图、血缘信息和规则配置的 TireStruct 对象
+
+    Returns:
+        TireStruct: 处理后的 TireStruct，big_image.scores.compliance 已更新
+
+    Raises:
+        InputDataError: 当必要参数缺失时抛出
+    """
+    # ========== 最外层参数校验（统一入口） ==========
+
+    # 校验 tire_struct
+    if tire_struct is None:
+        raise InputDataError(NODE_NAME, "tire_struct", "tire_struct is required")
+
+    # 校验 big_image
+    big_image = tire_struct.big_image
+    if big_image is None:
+        raise InputDataError(NODE_NAME, "big_image", "big_image is required")
+
+    # 校验 big_image.evaluation
+    if big_image.evaluation is None:
+        raise InputDataError(
+            NODE_NAME,
+            "big_image.evaluation",
+            "big_image.evaluation is required",
+        )
+
+    # 校验 lineage
+    lineage = big_image.lineage
+    if lineage is None:
+        raise InputDataError(NODE_NAME, "big_image.lineage", "big_image.lineage is required")
+
+    # ========== 参数提取 ==========
+    small_images = tire_struct.small_images
+    rules_config = tire_struct.rules_config
+
+    # ========== 调用核心评分函数 ==========
+    score_result = _calculate_geometric_scores(
+        big_image=big_image,
+        small_images=small_images,
+        lineage=lineage,
+        rules_config=rules_config,
+    )
+
+    # ========== 更新 compliance_score ==========
+    if big_image.scores is None:
+        big_image.scores = []
+
+    compliance_score_exists = False
+    for score in big_image.scores:
+        if hasattr(score, 'compliance'):
+            score.compliance = score_result['total_score']
+            compliance_score_exists = True
+            break
+
+    if not compliance_score_exists:
+        big_image.scores.append(ImageScore(compliance=score_result['total_score']))
+
+    return tire_struct
+
+
+def _calculate_geometric_scores(
     big_image: BigImage,
     small_images: List[SmallImage],
     lineage: ImageLineage,
     rules_config: List[BaseRuleConfig],
 ) -> dict:
     """
-    几何合理性业务评分主函数（基于已有评分计算）
+    几何合理性业务评分核心函数（基于已有评分计算）
 
-    只从 evaluation.rules 中提取 score 进行计算，不处理 base64 图片数据
+    注意：调用前需确保所有参数已通过校验（由外层 calculate_geometric_scores 负责）
+    只从 evaluation.rules 中提取 score 进行计算，通过图片 base64 信息进行有效小图索引匹配
 
     Args:
         big_image: 待评分的大图对象，包含 evaluation 字段
@@ -117,30 +189,24 @@ def calculate_geometric_scores(
             'effective_rule_count': int,         # 有效规则数量
             'rule_details': List[Dict],          # 规则详情列表
         }
-
-    Raises:
-        InputDataError: 当 big_image 或 evaluation 缺失时抛出
     """
-
-    if big_image is None:
-        raise InputDataError(NODE_NAME, "big_image", "big_image is required")
-
-    if big_image.evaluation is None:
-        raise InputDataError(
-            NODE_NAME,
-            "big_image.evaluation",
-            "big_image.evaluation is required",
-        )
 
     # 步骤1: 规则分类（基于现有 GEOMETRY_SCORER_CONFIGS）
     big_image_rules, small_image_rules, default_rules = _classify_rules(rules_config)
 
     # 步骤2: 从血缘中筛选参与计算的小图
-    used_regions = _extract_used_small_image_regions(lineage)
-    effective_small_images = [
-        img for img in small_images
-        if img.biz.region and img.biz.region.value in used_regions
-    ]
+    used_before_images = _extract_used_small_image_regions(lineage)
+    
+    # 为每个 before_image 找到匹配的小图（只取第一个匹配）
+    effective_small_images = []
+    matched_indices = set()  # 记录已匹配的小图索引，避免重复使用
+    
+    for before_image in used_before_images:
+        for idx, img in enumerate(small_images):
+            if idx not in matched_indices and img.image_base64 == before_image:
+                effective_small_images.append(img)
+                matched_indices.add(idx)
+                break  # 只取第一个匹配
 
     # 步骤3: 大图规则得分（直接从 evaluation 提取）
     big_image_scores = _extract_big_image_scores(big_image, big_image_rules)
@@ -167,27 +233,28 @@ def calculate_geometric_scores(
     )
 
 
-def _extract_used_small_image_regions(lineage: ImageLineage) -> set[str]:
+def _extract_used_small_image_regions(lineage: ImageLineage) -> list[str]:
     """
-    从血缘信息中提取实际参与大图拼接的小图区域标识
+    从血缘信息中提取实际参与大图拼接的小图的 before_image 列表
+
+    修改要点：
+    1. 返回列表而非集合，保留重复的 before_image
+    2. 确保 rib_number 为 5 时有 5 个元素，rib_number 为 4 时有 4 个元素
 
     Args:
         lineage: 血缘信息对象，包含拼接方案详情
 
     Returns:
-        set[str]: 参与拼接的区域标识集合（如 {'side', 'center'}）
-
-    Note:
-        从 stitching_scheme.ribs_scheme_implementation 中提取 rib_source 字段
+        list[str]: 参与拼接的 before_image 列表（保留顺序和重复）
     """
-    used_regions = set()
+    used_images = []
 
     if lineage and lineage.stitching_scheme:
         for rib_impl in lineage.stitching_scheme.ribs_scheme_implementation:
-            if rib_impl.rib_source:
-                used_regions.add(rib_impl.rib_source)
+            if rib_impl.before_image and rib_impl.before_image != "SKIPPED_GARBAGE":
+                used_images.append(rib_impl.before_image)
 
-    return used_regions
+    return used_images
 
 
 def _classify_rules(

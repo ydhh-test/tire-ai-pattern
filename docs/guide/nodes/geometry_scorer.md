@@ -173,17 +173,19 @@ $$\text{总分} = \left( \frac{\sum \text{实际得分}}{\sum \text{最大可能
 
 ### 4.4 小图筛选机制
 
-**筛选依据**：根据血缘信息中 `stitching_scheme.ribs_scheme_implementation[].rib_source` 字段筛选参与计算的小图。
+**筛选依据**：根据血缘信息中 `stitching_scheme.ribs_scheme_implementation[].before_image` 字段筛选参与计算的小图。
 
 **筛选流程**：
 1. 遍历血缘中的所有 RIB 拼接实现
-2. 提取 `rib_source` 字段（如 'side', 'center'）
-3. 筛选 `small_images` 中 `biz.region` 匹配的小图
-4. 仅使用筛选后的小图进行融合打分计算
+2. 提取 `before_image` 字段（小图的 base64 数据）
+3. 筛选 `small_images` 中 `image_base64` 匹配的小图（只取第一个匹配）
+4. 保留重复的 `before_image`，确保参与计算的小图数量与 `rib_number` 一致
+5. 仅使用筛选后的小图进行融合打分计算
 
 **设计意图**：
 - 确保评分只基于实际参与大图拼接的小图
-- 避免未使用的小图影响评分结果
+- 通过精确的图片数据匹配，避免区域标识可能带来的歧义
+- 保留重复项，确保评分与拼接方案的 RIB 数量一致
 - 保持评分与大图生成过程的一致性
 
 ---
@@ -240,20 +242,45 @@ $$\text{总分} = \left( \frac{\sum \text{实际得分}}{\sum \text{最大可能
 
 ```python
 def calculate_geometric_scores(
+    tire_struct: TireStruct,
+) -> TireStruct:
+    """
+    几何合理性业务评分封装函数（类实现），主函数
+    
+    输入为 TireStruct，输出为 TireStruct，自动从 TireStruct 中提取参数并调用核心评分函数。
+    
+    Args:
+        tire_struct: 包含大图、小图、血缘信息和规则配置的 TireStruct 对象
+    
+    Returns:
+        TireStruct: 处理后的 TireStruct，big_image.scores.compliance 已更新
+    """
+```
+
+### 6.2 参数说明
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `tire_struct` | `TireStruct` | 是 | 包含大图、小图、血缘信息和规则配置的完整数据结构 |
+
+### 6.3 核心内部函数
+
+```python
+def _calculate_geometric_scores(
     big_image: BigImage,
     small_images: List[SmallImage],
     lineage: ImageLineage,
     rules_config: List[BaseRuleConfig],
 ) -> dict:
     """
-    几何合理性业务评分主函数
+    几何合理性业务评分核心函数（内部调用）
     
-    根据血缘结构、小图、大图和规则配置，计算大图维度的规则总分
+    注意：调用前需确保所有参数已通过校验
     
     Args:
-        big_image: 待评分的大图对象，包含 evaluation 字段
+        big_image: 待评分的大图对象，包含 evaluation 字段（已校验）
         small_images: 小图列表，包含各小图的 evaluation 字段
-        lineage: 血缘信息，用于验证拼接方案并筛选参与计算的小图
+        lineage: 血缘信息，用于验证拼接方案（已校验）
         rules_config: 规则配置列表，定义各规则的 max_score
     
     Returns:
@@ -301,7 +328,7 @@ def calculate_geometric_scores(
             'score': 10,
             'max_score': 10,
             'is_applied': True,       # score > 0 时为 True，否则为 False，用于快速识别未满足的规则
-            'rule_type': 'big_image'  # RuleTypeEnum 枚举值: BIG_IMAGE / SMALL_IMAGE / DEFAULT
+            'rule_type': 'BIG_IMAGE'  # RuleTypeEnum 枚举值: BIG_IMAGE / SMALL_IMAGE / DEFAULT
         },
         {
             'name': 'rule8',
@@ -377,15 +404,8 @@ def generate_big_image_with_evaluation(tire_struct: TireStruct) -> TireStruct:
     # 节点5：几何合理性评分
     from src.nodes.geometry_scorer import calculate_geometric_scores
     
-    result = calculate_geometric_scores(
-        big_image=tire_struct.big_image,
-        small_images=tire_struct.small_images,
-        lineage=tire_struct.big_image.lineage,
-        rules_config=tire_struct.rules_config,
-    )
-    
-    # 将总分写回 big_image
-    tire_struct.big_image.evaluation.current_score = result['total_score']
+    # 直接传入 TireStruct，结果自动更新到 big_image.scores.compliance
+    tire_struct = calculate_geometric_scores(tire_struct)
     tire_struct.flag = True
     
     return tire_struct
@@ -399,14 +419,8 @@ def generate_big_image_with_evaluation(tire_struct: TireStruct) -> TireStruct:
 def update_big_image_score(tire_struct: TireStruct) -> TireStruct:
     from src.nodes.geometry_scorer import calculate_geometric_scores
     
-    result = calculate_geometric_scores(
-        big_image=tire_struct.big_image,
-        small_images=[],
-        lineage=tire_struct.big_image.lineage,
-        rules_config=tire_struct.rules_config,
-    )
-    
-    tire_struct.big_image.evaluation.current_score = result['total_score']
+    # 直接传入 TireStruct，结果自动更新到 big_image.scores.compliance
+    tire_struct = calculate_geometric_scores(tire_struct)
     tire_struct.flag = True
     
     return tire_struct

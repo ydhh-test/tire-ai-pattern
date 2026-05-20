@@ -12,11 +12,12 @@
   5. 空小图列表：small_images=[]，小图规则应得0分
   结果输出：所有端到端测试结果输出至 OUTPUT_DIR = "./.results/tire_design_images"
 
-二、_extract_used_small_image_regions 测试 - 3个
+二、_extract_used_small_image_regions 测试 - 4个
   设计角度：
-  1. 正常提取：lineage 包含多个 rib_source，正确提取为集合
-  2. lineage为None：传入 None 时返回空集合
-  3. stitching_scheme为None：lineage.stitching_scheme 为 None 时返回空集合
+  1. 正常提取：lineage 包含多个 before_image（保留顺序和重复）
+  2. lineage为None：传入 None 时返回空列表
+  3. stitching_scheme为None：lineage.stitching_scheme 为 None 时返回空列表
+  4. SKIPPED_GARBAGE 过滤：before_image 为 SKIPPED_GARBAGE 时不加入列表
 
 三、_classify_rules 测试 - 4个
   设计角度：
@@ -68,11 +69,12 @@
   2. 规则名大小写不敏感：规则名大小写不同仍能正确匹配
   3. 规则名不存在：未找到配置实例时，默认返回 RuleTypeEnum.BIG_IMAGE
 
-十、异常处理测试 - 3个
+十、异常处理测试 - 4个
   设计角度：
-  1. big_image为None：calculate_geometric_scores 传入 None 抛出 InputDataError
-  2. evaluation为None：big_image.evaluation 为 None 抛出 InputDataError
-  3. 血缘区域不匹配：小图区域与血缘 used_regions 不匹配时，该小图不参与计算
+  1. tire_struct为None：calculate_geometric_scores 传入 None 抛出 InputDataError
+  2. big_image为None：tire_struct.big_image 为 None 抛出 InputDataError
+  3. evaluation为None：big_image.evaluation 为 None 抛出 InputDataError
+  4. lineage为None：big_image.lineage 为 None 抛出 InputDataError
 
 十一、小图筛选机制测试 - 2个
   设计角度：
@@ -89,6 +91,7 @@ from unittest.mock import MagicMock, patch
 
 from src.nodes.geometry_scorer import (
     calculate_geometric_scores,
+    _calculate_geometric_scores,
     _extract_used_small_image_regions,
     _classify_rules,
     _extract_big_image_scores,
@@ -100,9 +103,10 @@ from src.nodes.geometry_scorer import (
 )
 from src.common.exceptions import InputDataError
 from src.models.enums import RuleTypeEnum, RegionEnum, LevelEnum, SourceTypeEnum
-from src.models.image_models import BigImage, SmallImage, ImageEvaluation, RuleEvaluation, ImageMeta, ImageBiz, ImageLineage
+from src.models.image_models import BigImage, SmallImage, ImageEvaluation, RuleEvaluation, ImageMeta, ImageBiz, ImageLineage, ImageScore
 from src.models.rule_models import BaseRuleConfig
 from src.models.scheme_models import RibSchemeImpl, StitchingScheme, StitchingSchemeAbstract, MainGrooveScheme, DecorationScheme
+from src.models.tire_struct import TireStruct
 
 # 端到端测试结果输出目录（与 scripts/test_geometry_scorer.py 保持一致）
 OUTPUT_DIR = "./.results/tire_design_images"
@@ -161,32 +165,23 @@ def _create_mock_big_image(evaluation: ImageEvaluation = None) -> BigImage:
     return big_image
 
 
-def _create_mock_small_image(region: RegionEnum = None, evaluation: ImageEvaluation = None) -> SmallImage:
-    """创建模拟的小图对象"""
+def _create_mock_small_image(image_base64: str = None, evaluation: ImageEvaluation = None) -> SmallImage:
+    """创建模拟的小图对象（使用 image_base64）"""
     small_image = MagicMock(spec=SmallImage)
-    
-    biz = MagicMock()
-    if region is not None:
-        region_mock = MagicMock()
-        region_mock.value = region.value
-        biz.region = region_mock
-    else:
-        biz.region = None
-    small_image.biz = biz
+    small_image.image_base64 = image_base64
     small_image.evaluation = evaluation
-    
     return small_image
 
 
-def _create_mock_lineage(used_regions: List[str] = None) -> ImageLineage:
-    """创建模拟的血缘信息对象"""
-    if used_regions is None:
+def _create_mock_lineage(before_images: List[str] = None) -> ImageLineage:
+    """创建模拟的血缘信息对象（使用 before_image）"""
+    if before_images is None:
         return None
     
     rib_impls = []
-    for idx, region in enumerate(used_regions):
+    for idx, before_image in enumerate(before_images):
         rib_impl = MagicMock(spec=RibSchemeImpl)
-        rib_impl.rib_source = region
+        rib_impl.before_image = before_image
         rib_impls.append(rib_impl)
     
     stitching_scheme = MagicMock(spec=StitchingScheme)
@@ -196,6 +191,15 @@ def _create_mock_lineage(used_regions: List[str] = None) -> ImageLineage:
     lineage.stitching_scheme = stitching_scheme
     
     return lineage
+
+
+def _create_mock_tire_struct(big_image: BigImage = None, small_images: List[SmallImage] = None, rules_config: List[BaseRuleConfig] = None) -> TireStruct:
+    """创建模拟的 TireStruct 对象"""
+    tire_struct = MagicMock(spec=TireStruct)
+    tire_struct.big_image = big_image if big_image is not None else _create_mock_big_image()
+    tire_struct.small_images = small_images if small_images is not None else []
+    tire_struct.rules_config = rules_config if rules_config is not None else []
+    return tire_struct
 
 
 def _create_mock_rule_config(name: str, rule_type: RuleTypeEnum, max_score: int = 10, description: str = "") -> BaseRuleConfig:
@@ -227,8 +231,11 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
             _create_mock_rule_config('rule22', RuleTypeEnum.DEFAULT, 20, '分辨率'),
         ]
         cls.max_possible = 48  # 10+4+2+2+10+20
+        # 模拟的图片 base64 数据
+        cls.image_data_1 = "base64_image_data_1"
+        cls.image_data_2 = "base64_image_data_2"
     
-    def _create_big_image_with_scores(self, scores: Dict[str, int]) -> BigImage:
+    def _create_big_image_with_scores(self, scores: Dict[str, int], lineage: ImageLineage = None) -> BigImage:
         """创建带得分的大图"""
         rules = []
         for config in self.rule_configs:
@@ -237,12 +244,15 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
                 rules.append(_create_mock_rule_evaluation(config.name, score_val))
         
         evaluation = _create_mock_evaluation(rules)
-        return _create_mock_big_image(evaluation)
+        big_image = _create_mock_big_image(evaluation)
+        big_image.lineage = lineage
+        big_image.scores = []
+        return big_image
     
-    def _create_small_images_with_scores(self, scores_list: List[Dict[str, int]], regions: List[RegionEnum] = None) -> List[SmallImage]:
-        """创建带得分的小图列表"""
-        if regions is None:
-            regions = [RegionEnum.CENTER] * len(scores_list)
+    def _create_small_images_with_scores(self, scores_list: List[Dict[str, int]], image_base64_list: List[str] = None) -> List[SmallImage]:
+        """创建带得分的小图列表（使用 image_base64）"""
+        if image_base64_list is None:
+            image_base64_list = [f"base64_image_{i}" for i in range(len(scores_list))]
         
         small_images = []
         for idx, scores in enumerate(scores_list):
@@ -253,7 +263,7 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
                     rules.append(_create_mock_rule_evaluation(config.name, score_val))
             
             evaluation = _create_mock_evaluation(rules)
-            small_images.append(_create_mock_small_image(regions[idx], evaluation))
+            small_images.append(_create_mock_small_image(image_base64_list[idx], evaluation))
         
         return small_images
     
@@ -280,115 +290,95 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
     
     def test_e2e_all_rules_full_score(self):
         """端到端-1: 全部规则满分，期望 total_score=100"""
+        # 使用相同的图片数据模拟血缘关联
+        image_data = "base64_center_image"
+        lineage = _create_mock_lineage([image_data, image_data, image_data])
         big_image = self._create_big_image_with_scores({
             'rule13': 2, 'rule20': 10, 'rule22': 20
-        })
+        }, lineage)
         small_images = self._create_small_images_with_scores([
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
-        ])
-        lineage = _create_mock_lineage(['center'])
+        ], [image_data, image_data, image_data])
         
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=self.rule_configs,
-        )
+        # 创建 TireStruct 并调用新接口
+        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
+        result_tire_struct = calculate_geometric_scores(tire_struct)
         
-        expected_total = 100
-        expected_max = self.max_possible
-        self.assertEqual(result['total_score'], expected_total)
-        self.assertEqual(result['max_possible_score'], expected_max)
+        # 验证 compliance_score
+        self.assertEqual(len(result_tire_struct.big_image.scores), 1)
+        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, 100)
     
     def test_e2e_small_image_partial_satisfied(self):
-        """端到端-2: 小图规则部分满足，期望 total_score=81"""
+        """端到端-2: 小图规则部分满足，期望 compliance_score=81"""
+        image_data = "base64_center_image"
+        lineage = _create_mock_lineage([image_data, image_data, image_data])
         big_image = self._create_big_image_with_scores({
             'rule13': 2, 'rule20': 10, 'rule22': 20
-        })
-        # - rule6: 融合得分 = (2/3) × ((10+0+10)/3) = (2/3) × 6.67 = 4.44 → 4
-        # - rule8: 融合得分 = (2/3) × ((4+0+4)/3) = (2/3) × 2.67 = 1.78 → 2
-        # - rule14: 融合得分 = (2/3) × ((2+0+2)/3) = (2/3) × 1.33 = 0.89 → 1
+        }, lineage)
         small_images = self._create_small_images_with_scores([
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
             {'rule6': 0, 'rule8': 0, 'rule14': 0},
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
-        ])
-        lineage = _create_mock_lineage(['center'])
+        ], [image_data, image_data, image_data])
         
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=self.rule_configs,
-        )
+        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
+        result_tire_struct = calculate_geometric_scores(tire_struct)
         
         expected = 81
-        self.assertEqual(result['total_score'], expected)
+        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
     
     def test_e2e_big_image_partial_score(self):
-        """端到端-3: 大图规则部分得分，期望 total_score=81"""
+        """端到端-3: 大图规则部分得分，期望 compliance_score=81"""
+        image_data = "base64_center_image"
+        lineage = _create_mock_lineage([image_data])
         big_image = self._create_big_image_with_scores({
             'rule13': 1, 'rule20': 10, 'rule22': 20
-        })
+        }, lineage)
         small_images = self._create_small_images_with_scores([
             {'rule6': 5, 'rule8': 2, 'rule14': 1},
-        ])
-        lineage = _create_mock_lineage(['center'])
+        ], [image_data])
         
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=self.rule_configs,
-        )
+        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
+        result_tire_struct = calculate_geometric_scores(tire_struct)
         
         expected = 81
-        self.assertEqual(result['total_score'], expected)
+        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
     
     def test_e2e_only_default_rules_scored(self):
-        """端到端-4: 仅默认规则得分，期望 total_score=62"""
+        """端到端-4: 仅默认规则得分，期望 compliance_score=62"""
+        image_data = "base64_center_image"
+        lineage = _create_mock_lineage([image_data, image_data, image_data])
         big_image = self._create_big_image_with_scores({
             'rule13': 0, 'rule20': 10, 'rule22': 20
-        })
+        }, lineage)
         small_images = self._create_small_images_with_scores([
             {'rule6': 0, 'rule8': 0, 'rule14': 0},
             {'rule6': 0, 'rule8': 0, 'rule14': 0},
             {'rule6': 0, 'rule8': 0, 'rule14': 0},
-        ])
-        lineage = _create_mock_lineage(['center'])
+        ], [image_data, image_data, image_data])
         
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=self.rule_configs,
-        )
+        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
+        result_tire_struct = calculate_geometric_scores(tire_struct)
         
         expected = 62
-        self.assertEqual(result['total_score'], expected)
+        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
     
     def test_e2e_empty_small_images(self):
         """端到端-5: 空小图列表，小图规则得0分"""
+        image_data = "base64_center_image"
+        lineage = _create_mock_lineage([image_data])
         big_image = self._create_big_image_with_scores({
             'rule13': 2, 'rule20': 10, 'rule22': 20
-        })
+        }, lineage)
         small_images = []
-        lineage = _create_mock_lineage(['center'])
         
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=self.rule_configs,
-        )
+        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
+        result_tire_struct = calculate_geometric_scores(tire_struct)
         
-        # 小图规则得0分，总分 = (2+0+0+0+10+20)/48*100 = 66.67 → 67
-        expected = {'rule6': 0, 'rule8': 0, 'rule14': 0}
-        self.assertEqual(result['individual_scores']['rule6'], expected['rule6'])
-        self.assertEqual(result['individual_scores']['rule8'], expected['rule8'])
-        self.assertEqual(result['individual_scores']['rule14'], expected['rule14'])
+        # 验证 compliance_score（小图规则得0分，总分 = (2+0+0+0+10+20)/48*100 = 66.67 → 67）
+        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, 67)
     
     @classmethod
     def tearDownClass(cls):
@@ -406,24 +396,31 @@ class TestExtractUsedSmallImageRegions(unittest.TestCase):
     """_extract_used_small_image_regions 测试（3个用例）"""
     
     def test_normal_extraction(self):
-        """正常提取：lineage 包含多个 rib_source"""
-        lineage = _create_mock_lineage(['side', 'center', 'side'])
+        """正常提取：lineage 包含多个 before_image（保留顺序和重复）"""
+        lineage = _create_mock_lineage(['image1', 'image2', 'image1'])
         result = _extract_used_small_image_regions(lineage)
-        expected = {'side', 'center'}
+        expected = ['image1', 'image2', 'image1']  # 列表而非集合，保留重复
         self.assertEqual(result, expected)
     
     def test_lineage_is_none(self):
-        """lineage为None：返回空集合"""
+        """lineage为None：返回空列表"""
         result = _extract_used_small_image_regions(None)
-        expected = set()
+        expected = []
         self.assertEqual(result, expected)
     
     def test_stitching_scheme_is_none(self):
-        """stitching_scheme为None：返回空集合"""
+        """stitching_scheme为None：返回空列表"""
         lineage = MagicMock(spec=ImageLineage)
         lineage.stitching_scheme = None
         result = _extract_used_small_image_regions(lineage)
-        expected = set()
+        expected = []
+        self.assertEqual(result, expected)
+    
+    def test_skipped_garbage_filtering(self):
+        """SKIPPED_GARBAGE 过滤：before_image 为 SKIPPED_GARBAGE 时不加入列表"""
+        lineage = _create_mock_lineage(['image1', 'SKIPPED_GARBAGE', 'image2'])
+        result = _extract_used_small_image_regions(lineage)
+        expected = ['image1', 'image2']
         self.assertEqual(result, expected)
 
 
@@ -544,10 +541,10 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
     def test_all_full_score(self):
         """全部满分：满足比例100%，平均分为满分，最终得满分"""
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 10)
             ])),
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image2", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 10)
             ])),
         ]
@@ -558,10 +555,10 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
     def test_all_zero_score(self):
         """全部0分：满足比例0%，最终得0分"""
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 0)
             ])),
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image2", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 0)
             ])),
         ]
@@ -575,13 +572,13 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
         # 满足比例 = 2/3，平均分 = (10+0+10)/3 = 6.67
         # 最终得分 = round(2/3 * 6.67) = round(4.44) = 4
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 10)
             ])),
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image2", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 0)
             ])),
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image3", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 10)
             ])),
         ]
@@ -592,7 +589,7 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
     def test_single_small_image(self):
         """单张小图：仅1张且得分>0，满足比例100%"""
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 5)
             ])),
         ]
@@ -609,8 +606,8 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
     def test_no_valid_scores(self):
         """无有效得分：所有小图 evaluation 中均无该规则得分"""
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([])),
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([])),
+            _create_mock_small_image("image1", _create_mock_evaluation([])),
+            _create_mock_small_image("image2", _create_mock_evaluation([])),
         ]
         result = _calculate_small_image_rule_score(small_images, 'rule6', 10)
         expected = 0
@@ -620,7 +617,7 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
         """得分超出max_score：计算结果超过 max_score，验证被截断"""
         # 满足比例=1，平均分=10，但 max_score=5，应截断到5
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', 10)
             ])),
         ]
@@ -631,7 +628,7 @@ class TestCalculateSmallImageRuleScore(unittest.TestCase):
     def test_negative_score(self):
         """负分处理：小图得分为负数，验证截断到0"""
         small_images = [
-            _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+            _create_mock_small_image("image1", _create_mock_evaluation([
                 _create_mock_rule_evaluation('rule6', -5)
             ])),
         ]
@@ -822,53 +819,32 @@ class TestGetRuleType(unittest.TestCase):
 class TestExceptionHandling(unittest.TestCase):
     """异常处理测试（3个用例）"""
     
+    def test_tire_struct_is_none(self):
+        """tire_struct为None：抛出 InputDataError"""
+        with self.assertRaises(InputDataError):
+            calculate_geometric_scores(None)
+    
     def test_big_image_is_none(self):
         """big_image为None：抛出 InputDataError"""
+        tire_struct = _create_mock_tire_struct(big_image=None)
         with self.assertRaises(InputDataError):
-            calculate_geometric_scores(
-                big_image=None,
-                small_images=[],
-                lineage=_create_mock_lineage(['center']),
-                rules_config=[],
-            )
+            calculate_geometric_scores(tire_struct)
     
     def test_evaluation_is_none(self):
         """evaluation为None：抛出 InputDataError"""
         big_image = _create_mock_big_image(None)
+        big_image.lineage = _create_mock_lineage([])
+        tire_struct = _create_mock_tire_struct(big_image=big_image)
         with self.assertRaises(InputDataError):
-            calculate_geometric_scores(
-                big_image=big_image,
-                small_images=[],
-                lineage=_create_mock_lineage(['center']),
-                rules_config=[],
-            )
+            calculate_geometric_scores(tire_struct)
     
-    def test_region_mismatch_filtering(self):
-        """血缘区域不匹配：小图区域与 used_regions 不匹配时不参与计算"""
-        # 血缘要求 'center'，但小图是 'side'
-        rule_configs = [
-            _create_mock_rule_config('rule6', RuleTypeEnum.SMALL_IMAGE, 10),
-        ]
-        big_image = _create_mock_big_image(_create_mock_evaluation([
-            _create_mock_rule_evaluation('rule13', 2)
-        ]))
-        small_images = [
-            _create_mock_small_image(RegionEnum.SIDE, _create_mock_evaluation([
-                _create_mock_rule_evaluation('rule6', 10)
-            ])),
-        ]
-        lineage = _create_mock_lineage(['center'])
-        
-        result = calculate_geometric_scores(
-            big_image=big_image,
-            small_images=small_images,
-            lineage=lineage,
-            rules_config=rule_configs,
-        )
-        
-        # side 小图不应参与计算，rule6 应得0分
-        expected = 0
-        self.assertEqual(result['individual_scores'].get('rule6', 0), expected)
+    def test_lineage_is_none(self):
+        """lineage为None：抛出 InputDataError"""
+        big_image = _create_mock_big_image(_create_mock_evaluation([]))
+        big_image.lineage = None
+        tire_struct = _create_mock_tire_struct(big_image=big_image)
+        with self.assertRaises(InputDataError):
+            calculate_geometric_scores(tire_struct)
 
 
 # ========================
@@ -878,40 +854,51 @@ class TestExceptionHandling(unittest.TestCase):
 class TestSmallImageFiltering(unittest.TestCase):
     """小图筛选机制测试（2个用例）"""
     
-    def test_region_matching_filter(self):
-        """区域匹配筛选：仅 biz.region.value 在 used_regions 中的小图参与"""
-        used_regions = {'center'}
+    def test_image_base64_matching_filter(self):
+        """图片匹配筛选：仅 image_base64 匹配 before_image 的小图参与"""
+        before_images = ['image_data_1', 'image_data_2']
         
-        center_image = _create_mock_small_image(RegionEnum.CENTER, _create_mock_evaluation([
+        image1 = _create_mock_small_image('image_data_1', _create_mock_evaluation([
             _create_mock_rule_evaluation('rule6', 10)
         ]))
-        side_image = _create_mock_small_image(RegionEnum.SIDE, _create_mock_evaluation([
+        image2 = _create_mock_small_image('image_data_2', _create_mock_evaluation([
             _create_mock_rule_evaluation('rule6', 5)
+        ]))
+        unmatched_image = _create_mock_small_image('image_data_3', _create_mock_evaluation([
+            _create_mock_rule_evaluation('rule6', 8)
         ]))
         
         # 模拟 calculate_geometric_scores 中的筛选逻辑
-        effective = [
-            img for img in [center_image, side_image]
-            if img.biz.region and img.biz.region.value in used_regions
-        ]
+        matched_indices = set()
+        effective = []
+        for before_image in before_images:
+            for idx, img in enumerate([image1, image2, unmatched_image]):
+                if idx not in matched_indices and img.image_base64 == before_image:
+                    effective.append(img)
+                    matched_indices.add(idx)
+                    break
         
-        expected_len = 1
-        expected_value = RegionEnum.CENTER.value
+        expected_len = 2
         self.assertEqual(len(effective), expected_len)
-        self.assertEqual(effective[0].biz.region.value, expected_value)
+        self.assertEqual(effective[0].image_base64, 'image_data_1')
+        self.assertEqual(effective[1].image_base64, 'image_data_2')
     
-    def test_region_is_none(self):
-        """region为None：小图 biz.region 为 None 时不参与计算"""
-        used_regions = {'center'}
+    def test_image_base64_is_none(self):
+        """image_base64为None：小图 image_base64 为 None 时不参与计算"""
+        before_images = ['image_data_1']
         
-        none_region_image = _create_mock_small_image(None, _create_mock_evaluation([
+        none_image = _create_mock_small_image(None, _create_mock_evaluation([
             _create_mock_rule_evaluation('rule6', 10)
         ]))
         
-        effective = [
-            img for img in [none_region_image]
-            if img.biz.region and img.biz.region.value in used_regions
-        ]
+        matched_indices = set()
+        effective = []
+        for before_image in before_images:
+            for idx, img in enumerate([none_image]):
+                if idx not in matched_indices and img.image_base64 == before_image:
+                    effective.append(img)
+                    matched_indices.add(idx)
+                    break
         
         expected_len = 0
         self.assertEqual(len(effective), expected_len)

@@ -130,6 +130,10 @@ class BaseRuleConfig(BaseModel):
         """规则名称，从类名自动提取（如Rule8Config → rule8）"""
         return self.__class__.__name__.lower().replace("config", "")
 
+    @property
+    def log_display(self) -> str:
+        return f'{self.__class__.__name__}[{self.description}]'
+
 
 class BaseRuleFeature(BaseModel):
     """
