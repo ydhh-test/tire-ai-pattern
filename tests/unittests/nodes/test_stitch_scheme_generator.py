@@ -13,6 +13,7 @@ from src.models.enums import (
     RibOperation,
 )
 from src.models.image_models import (
+    BigImage,
     ImageLineage,
     ImageBiz,
     ImageEvaluation,
@@ -21,6 +22,7 @@ from src.models.image_models import (
     SmallImage,
 )
 from src.models.rule_models import (
+    BaseRuleConfig,
     DecorationItem,
     GrooveSizeItem,
     RibSizeItem,
@@ -87,6 +89,37 @@ def make_small_image(region: RegionEnum, payload: str, score: int) -> SmallImage
             current_score=score,
         ),
     )
+
+
+def make_big_image() -> BigImage:
+    return BigImage(
+        image_base64="data:image/png;base64,big",
+        meta=ImageMeta(
+            width=10,
+            height=10,
+            channels=3,
+            mode=ImageModeEnum.RGB,
+            format=ImageFormatEnum.PNG,
+            size=10,
+        ),
+        biz=ImageBiz(
+            level=LevelEnum.BIG,
+            region=RegionEnum.CENTER,
+            source_type=SourceTypeEnum.ORIGINAL,
+        ),
+    )
+
+
+def generate_lineage_for_test(
+    small_images: list[SmallImage],
+    rules_config: list[BaseRuleConfig],
+    scheme_rank: int,
+) -> ImageLineage:
+    result = generate_stitch_scheme(make_big_image(), small_images, rules_config, scheme_rank)
+
+    assert isinstance(result, BigImage)
+    assert isinstance(result.lineage, ImageLineage)
+    return result.lineage
 
 
 class Rule3Template(StitchingTemplate):
@@ -437,9 +470,11 @@ def test_generate_stitch_scheme_returns_requested_ranked_scheme():
         ),
     ]
 
-    result = generate_stitch_scheme(small_images, rules_config, 1)
+    result_big_image = generate_stitch_scheme(make_big_image(), small_images, rules_config, 1)
 
-    assert isinstance(result, ImageLineage)
+    assert isinstance(result_big_image, BigImage)
+    assert isinstance(result_big_image.lineage, ImageLineage)
+    result = result_big_image.lineage
     expected_scheme_name = StitchingSchemeName.SYMMETRY_0
     expected_rib_count = 5
     expected_rib_sizes = [
@@ -521,7 +556,7 @@ def test_generate_stitch_scheme_uses_best_subset_when_input_images_are_more_than
         ),
     ]
 
-    result = generate_stitch_scheme(small_images, rules_config, 1)
+    result = generate_lineage_for_test(small_images, rules_config, 1)
 
     assert {rib.before_image for rib in result.stitching_scheme.ribs_scheme_implementation} <= {
         "data:image/png;base64,side-a",
@@ -570,7 +605,7 @@ def test_generate_stitch_scheme_rejects_rank_out_of_range():
     out_of_range_scheme_rank = 37
 
     with pytest.raises(InputDataError, match="scheme_rank"):
-        generate_stitch_scheme(small_images, rules_config, out_of_range_scheme_rank)
+        generate_stitch_scheme(make_big_image(), small_images, rules_config, out_of_range_scheme_rank)
 
 
 def test_generate_stitch_scheme_supports_inherited_ribs():
@@ -606,7 +641,7 @@ def test_generate_stitch_scheme_supports_inherited_ribs():
         ),
     ]
 
-    result = generate_stitch_scheme(small_images, rules_config, 1)
+    result = generate_lineage_for_test(small_images, rules_config, 1)
 
     expected_rib_names = [
         "rib1",
@@ -830,7 +865,7 @@ def test_generate_stitch_scheme_rejects_missing_rib_size_config():
     ]
 
     with pytest.raises(InputDataError, match="rib_sizes"):
-        generate_stitch_scheme(small_images, rules_config, 1)
+        generate_stitch_scheme(make_big_image(), small_images, rules_config, 1)
 
 
 def test_generate_stitch_scheme_logs_key_execution_steps(caplog):
@@ -869,7 +904,7 @@ def test_generate_stitch_scheme_logs_key_execution_steps(caplog):
     ]
 
     with caplog.at_level("DEBUG", logger="拼接方案"):
-        generate_stitch_scheme(small_images, rules_config, 1)
+        generate_stitch_scheme(make_big_image(), small_images, rules_config, 1)
 
     messages = [record.message for record in caplog.records]
     expected_formula_log = "公式=A[2,2]*A[3,3] + A[2,2]*A[3,3] + A[2,2]*A[3,3] = 12 + 12 + 12 = 36"
