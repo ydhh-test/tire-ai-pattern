@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 
@@ -26,12 +27,13 @@ from src.models.scheme_models import (
     StitchingSchemeAbstract,
 )
 from src.rules.executors.rule13 import Rule13Executor
-from src.utils.image_utils import load_image_to_base64
+from src.utils.image_utils import base64_to_ndarray, load_image_to_base64
 
 
 IMAGE_SIZE = 128
 DATASET_ROOT = Path("tests/datasets/task_rule13_vis")
 BASELINE_PATH = DATASET_ROOT / "baseline.json"
+VIS_GOLDEN_PATH = DATASET_ROOT / "vis_golden_rule13_deco300.png"
 
 
 def load_rule13_baseline_cases() -> list[dict]:
@@ -116,7 +118,10 @@ def make_big_image(
 
 
 def make_baseline_big_image(baseline_case: dict) -> BigImage:
-    image_path = DATASET_ROOT / baseline_case["image_path"]
+    if "image_full_path" in baseline_case:
+        image_path = Path(baseline_case["image_full_path"])
+    else:
+        image_path = DATASET_ROOT / baseline_case["image_path"]
     return make_big_image(
         image_base64=load_image_to_base64(image_path),
         meta=make_meta(size=image_path.stat().st_size),
@@ -253,7 +258,11 @@ def test_exec_score_uses_land_ratio_bounds(land_ratio: float, expected_score: in
     assert rst == expect_rst
 
 
-@pytest.mark.parametrize("baseline_case", load_rule13_baseline_cases(), ids=lambda case: case["image_path"])
+@pytest.mark.parametrize(
+    "baseline_case",
+    load_rule13_baseline_cases(),
+    ids=lambda case: Path(case.get("image_full_path") or case["image_path"]).name,
+)
 def test_exec_feature_and_score_match_real_image_baseline(baseline_case: dict):
     """Real big images should produce the frozen land-sea-ratio feature baseline."""
     executor = Rule13Executor()
@@ -405,3 +414,32 @@ def test_exec_feature_rejects_decoration_wider_than_image(monkeypatch):
 
     with pytest.raises(InputDataError, match="less than image width"):
         Rule13Executor().exec_feature(big_image, make_rule13_config())
+
+
+def test_exec_feature_debug_vis_matches_golden():
+    """Debug visualization must be generated from the cropped (decoration-free) region.
+
+    Uses a real stitched image (correct_black_decoration.png) with 300 px gray borders on
+    each side. Asserts that the vis_image pixel content matches the pre-saved golden file,
+    proving the visualization reflects the post-crop tread area, not the full image.
+    """
+    image_path = Path("tests/datasets/stitching/correct_black_decoration.png")
+    big_image = make_big_image(
+        image_base64=load_image_to_base64(image_path),
+        meta=make_meta(size=image_path.stat().st_size),
+        lineage=make_lineage(left_width=300, right_width=300),
+    )
+
+    feature = Rule13Executor().exec_feature(big_image, make_rule13_config(), is_debug=True)
+
+    assert feature.vis_images is not None, "is_debug=True should produce vis_images"
+    assert len(feature.vis_images) == 1
+
+    vis_array = base64_to_ndarray(feature.vis_images[0])
+    golden = cv2.imread(str(VIS_GOLDEN_PATH))
+
+    assert golden is not None, f"Golden file not found: {VIS_GOLDEN_PATH}"
+    assert np.array_equal(vis_array, golden), (
+        f"vis_image shape {vis_array.shape} does not match golden {golden.shape}; "
+        "the visualization may have been generated from the un-cropped image"
+    )

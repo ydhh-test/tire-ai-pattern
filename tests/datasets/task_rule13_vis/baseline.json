@@ -77,6 +77,19 @@
       "score": {
         "score": 0
       }
+    },
+    {
+      "image_full_path": "tests/datasets/stitching/correct_black_decoration.png",
+      "left_decoration_px": 300,
+      "right_decoration_px": 300,
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 26.34
+      },
+      "score": {
+        "score": 0
+      }
     }
   ]
 }
