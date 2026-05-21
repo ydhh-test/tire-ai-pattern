@@ -7,9 +7,24 @@ import numpy as np
 import pytest
 
 from src.common.exceptions import InputDataError, InputTypeError
-from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum, SourceTypeEnum
-from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
+from src.models.enums import (
+    ImageFormatEnum,
+    ImageModeEnum,
+    LevelEnum,
+    RegionEnum,
+    SourceTypeEnum,
+    StitchingSchemeName,
+)
+from src.models.image_models import BigImage, ImageBiz, ImageLineage, ImageMeta, SmallImage
 from src.models.rule_models import Rule8Feature, Rule13Config, Rule13Feature, Rule13Score
+from src.models.scheme_models import (
+    DecorationImpl,
+    DecorationScheme,
+    DecorationSchemeAbstract,
+    MainGrooveScheme,
+    StitchingScheme,
+    StitchingSchemeAbstract,
+)
 from src.rules.executors.rule13 import Rule13Executor
 from src.utils.image_utils import load_image_to_base64
 
@@ -47,14 +62,56 @@ def make_meta(width: int = IMAGE_SIZE, height: int = IMAGE_SIZE, size: int = 1) 
     )
 
 
+def make_lineage(left_width: int = 0, right_width: int = 0) -> ImageLineage:
+    """Build a minimal ImageLineage carrying only the decoration widths Rule13 needs.
+
+    Rule13 reads `decoration_implementation` in [left, right] order; other lineage
+    fields are required by the model but unused by Rule13, so we keep them trivial.
+    """
+    return ImageLineage(
+        stitching_scheme=StitchingScheme(
+            stitching_scheme_abstract=StitchingSchemeAbstract(
+                name=StitchingSchemeName.SYMMETRY_0,
+                description="rule13 test",
+                rib_number=5,
+            ),
+            ribs_scheme_implementation=[],
+        ),
+        main_groove_scheme=MainGrooveScheme(
+            main_groove_scheme_abstract=None,
+            main_groove_implementation=[],
+        ),
+        decoration_scheme=DecorationScheme(
+            decoration_scheme_abstract=DecorationSchemeAbstract(
+                name="rule102",
+                description="rule13 test",
+            ),
+            decoration_implementation=[
+                DecorationImpl(
+                    decoration_width=left_width,
+                    decoration_height=IMAGE_SIZE,
+                    decoration_opacity=255,
+                ),
+                DecorationImpl(
+                    decoration_width=right_width,
+                    decoration_height=IMAGE_SIZE,
+                    decoration_opacity=255,
+                ),
+            ],
+        ),
+    )
+
+
 def make_big_image(
     image_base64: str = "data:image/png;base64,big",
     meta: ImageMeta | None = None,
+    lineage: ImageLineage | None = None,
 ) -> BigImage:
     return BigImage(
         image_base64=image_base64,
         meta=meta or make_meta(),
         biz=ImageBiz(level=LevelEnum.BIG, source_type=SourceTypeEnum.CONCAT),
+        lineage=lineage if lineage is not None else make_lineage(),
     )
 
 
@@ -84,7 +141,13 @@ def test_exec_feature_converts_detector_result_to_feature(monkeypatch):
         return decoded_image
 
     def fake_compute_land_sea_ratio(image_array: np.ndarray, **kwargs):
-        calls["detector"].append({"received_decoded_image": image_array is decoded_image, **kwargs})
+        calls["detector"].append(
+            {
+                "received_shape": image_array.shape,
+                "received_equals_decoded": np.array_equal(image_array, decoded_image),
+                **kwargs,
+            }
+        )
         return 24.72, "", None
 
     monkeypatch.setattr("src.rules.executors.rule13.base64_to_ndarray", fake_base64_to_ndarray)
@@ -103,7 +166,8 @@ def test_exec_feature_converts_detector_result_to_feature(monkeypatch):
             "base64": ["data:image/png;base64,big"],
             "detector": [
                 {
-                    "received_decoded_image": True,
+                    "received_shape": (IMAGE_SIZE, IMAGE_SIZE, 3),
+                    "received_equals_decoded": True,
                     "is_debug": False,
                 }
             ],
@@ -122,7 +186,13 @@ def test_exec_feature_passes_debug_and_returns_visualization(monkeypatch):
         return decoded_image
 
     def fake_compute_land_sea_ratio(image_array: np.ndarray, **kwargs):
-        calls["detector"].append({"received_decoded_image": image_array is decoded_image, **kwargs})
+        calls["detector"].append(
+            {
+                "received_shape": image_array.shape,
+                "received_equals_decoded": np.array_equal(image_array, decoded_image),
+                **kwargs,
+            }
+        )
         return 30.0, "land_sea_ratio", debug_image
 
     monkeypatch.setattr("src.rules.executors.rule13.base64_to_ndarray", fake_base64_to_ndarray)
@@ -147,7 +217,8 @@ def test_exec_feature_passes_debug_and_returns_visualization(monkeypatch):
         "calls": {
             "detector": [
                 {
-                    "received_decoded_image": True,
+                    "received_shape": (IMAGE_SIZE, IMAGE_SIZE, 3),
+                    "received_equals_decoded": True,
                     "is_debug": True,
                 }
             ],
@@ -231,3 +302,102 @@ def test_exec_score_rejects_invalid_config_bounds():
 
     with pytest.raises(InputDataError, match="config.land_ratio_min"):
         Rule13Executor().exec_score(config, Rule13Feature(land_ratio=30.0))
+
+
+# ============================================================
+# Rule13 crops out left/right decoration stripes before scoring
+# ============================================================
+
+
+def test_exec_feature_crops_decorations_before_calling_detector(monkeypatch):
+    """Rule13 should hand the cropped red-box region (gray-edges removed) to the detector."""
+    full_width = 100
+    left_width = 10
+    right_width = 15
+    decoded_image = np.arange(IMAGE_SIZE * full_width * 3, dtype=np.uint8).reshape(
+        (IMAGE_SIZE, full_width, 3)
+    )
+    expected_cropped = decoded_image[:, left_width : full_width - right_width, :]
+    calls = {"detector": []}
+
+    def fake_base64_to_ndarray(_image_base64: str) -> np.ndarray:
+        return decoded_image
+
+    def fake_compute_land_sea_ratio(image_array: np.ndarray, **kwargs):
+        calls["detector"].append(
+            {
+                "received_shape": image_array.shape,
+                "received_equals_expected_crop": np.array_equal(image_array, expected_cropped),
+                **kwargs,
+            }
+        )
+        return 30.0, "", None
+
+    monkeypatch.setattr("src.rules.executors.rule13.base64_to_ndarray", fake_base64_to_ndarray)
+    monkeypatch.setattr("src.rules.executors.rule13.compute_land_sea_ratio", fake_compute_land_sea_ratio)
+
+    big_image = make_big_image(lineage=make_lineage(left_width=left_width, right_width=right_width))
+    Rule13Executor().exec_feature(big_image, make_rule13_config())
+
+    rst = calls["detector"]
+    expect_rst = [
+        {
+            "received_shape": (IMAGE_SIZE, full_width - left_width - right_width, 3),
+            "received_equals_expected_crop": True,
+            "is_debug": False,
+        }
+    ]
+    assert rst == expect_rst
+
+
+def test_exec_feature_rejects_missing_lineage():
+    """Rule13 needs decoration widths from lineage and must fail loudly when absent."""
+    big_image = make_big_image(lineage=None)
+    big_image.lineage = None  # bypass make_big_image default to force the None branch
+
+    with pytest.raises(InputDataError, match="BigImage.lineage"):
+        Rule13Executor().exec_feature(big_image, make_rule13_config())
+
+
+@pytest.mark.parametrize(
+    "decoration_widths",
+    [
+        [],
+        [(0,)],
+        [(0,), (0,), (0,)],
+    ],
+    ids=["empty", "single_item", "three_items"],
+)
+def test_exec_feature_rejects_decoration_count_not_two(monkeypatch, decoration_widths):
+    """Rule13 expects exactly [left, right] decoration entries."""
+    lineage = make_lineage()
+    lineage.decoration_scheme.decoration_implementation = [
+        DecorationImpl(
+            decoration_width=w[0],
+            decoration_height=IMAGE_SIZE,
+            decoration_opacity=255,
+        )
+        for w in decoration_widths
+    ]
+    big_image = make_big_image(lineage=lineage)
+
+    monkeypatch.setattr(
+        "src.rules.executors.rule13.base64_to_ndarray",
+        lambda _b64: np.zeros((IMAGE_SIZE, IMAGE_SIZE, 3), dtype=np.uint8),
+    )
+
+    with pytest.raises(InputDataError, match="must contain exactly 2 items"):
+        Rule13Executor().exec_feature(big_image, make_rule13_config())
+
+
+def test_exec_feature_rejects_decoration_wider_than_image(monkeypatch):
+    """left + right decoration_width must leave at least one column of pattern to score."""
+    decoded_image = np.zeros((IMAGE_SIZE, 20, 3), dtype=np.uint8)
+    monkeypatch.setattr(
+        "src.rules.executors.rule13.base64_to_ndarray", lambda _b64: decoded_image
+    )
+
+    big_image = make_big_image(lineage=make_lineage(left_width=15, right_width=10))
+
+    with pytest.raises(InputDataError, match="less than image width"):
+        Rule13Executor().exec_feature(big_image, make_rule13_config())
