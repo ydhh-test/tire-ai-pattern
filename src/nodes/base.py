@@ -8,6 +8,7 @@ helper 完成规则执行。
 from __future__ import annotations
 
 from src.common.exceptions import InputDataError
+from src.models.enums import RuleTypeEnum
 from src.models.image_models import BaseImage, ImageEvaluation, RuleEvaluation
 from src.models.rule_models import (
     BaseRuleConfig,
@@ -20,6 +21,8 @@ from src.models.rule_models import (
     Rule6Config,
     Rule7Config,
     Rule8Config,
+    Rule9Config,
+    Rule10Config,
     Rule11Config,
     Rule12Config,
     Rule13Config,
@@ -29,6 +32,7 @@ from src.models.rule_models import (
     Rule17Config,
     Rule18Config,
     Rule19Config,
+    Rule20Config,
     Rule21Config,
     Rule22Config,
     Rule100Config,
@@ -38,11 +42,59 @@ from src.models.rule_models import (
 from src.rules.runner import RuleRunner
 
 
-SMALL_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = [
+ALL_RULE_CONFIG_TYPES: list[type[BaseRuleConfig]] = [
+    Rule1Config,
+    Rule2Config,
+    Rule3Config,
+    # Rule4Config,  # 已注释
+    # Rule5Config,  # 已注释
+    Rule6AConfig,
     Rule6Config,
+    Rule7Config,
     Rule8Config,
+    Rule9Config,
+    Rule10Config,
     Rule11Config,
+    Rule12Config,
+    Rule13Config,
+    Rule14Config,
+    Rule15Config,
+    Rule16Config,
+    Rule17Config,
+    Rule18Config,
+    Rule19Config,
+    Rule20Config,
+    Rule21Config,
+    Rule22Config,
+    Rule100Config,
+    Rule101Config,
+    Rule102Config,
 ]
+
+
+def get_rule_config_types_by_rule_type(
+    rule_type: RuleTypeEnum,
+) -> list[type[BaseRuleConfig]]:
+    """Return rule config classes whose declared ``rule_type`` matches."""
+
+    return [
+        config_type
+        for config_type in ALL_RULE_CONFIG_TYPES
+        if config_type.model_fields["rule_type"].default == rule_type
+    ]
+
+
+SMALL_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = (
+    get_rule_config_types_by_rule_type(RuleTypeEnum.SMALL_IMAGE)
+)
+
+BIG_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = (
+    get_rule_config_types_by_rule_type(RuleTypeEnum.BIG_IMAGE)
+)
+
+DEFAULT_RULE_CONFIGS: list[type[BaseRuleConfig]] = (
+    get_rule_config_types_by_rule_type(RuleTypeEnum.DEFAULT)
+)
 
 STITCH_SCHEME_GENERATOR_CONFIGS: list[type[BaseRuleConfig]] = [
     Rule1Config,
@@ -59,26 +111,6 @@ STITCH_SCHEME_GENERATOR_CONFIGS: list[type[BaseRuleConfig]] = [
     Rule100Config,
     Rule101Config,
     Rule102Config,
-]
-
-BIG_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = [
-    Rule8Config,
-    Rule13Config,
-    Rule14Config,
-    Rule15Config,
-    Rule18Config,
-    Rule21Config,
-    Rule22Config,
-]
-
-GEOMETRY_SCORER_CONFIGS: list[type[BaseRuleConfig]] = [
-    Rule8Config,
-    Rule13Config,
-    Rule14Config,
-    Rule15Config,
-    Rule18Config,
-    Rule21Config,
-    Rule22Config,
 ]
 
 
@@ -121,10 +153,7 @@ def select_node_configs(
         按 ``ordered_config_types`` 排序后的规则配置列表。用户未传入的
         规则配置会被忽略，不会生成默认配置。
 
-    Raises:
-        InputDataError: 当 ``rules_config`` 中存在重复规则配置类型时抛出。
     """
-    validate_no_duplicate_config_types(rules_config)
     config_by_type = {type(config): config for config in rules_config}
 
     return [

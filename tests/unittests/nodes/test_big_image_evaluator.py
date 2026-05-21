@@ -75,9 +75,9 @@ def test_evaluate_big_image_writes_single_big_image_evaluation_only(monkeypatch)
     result = evaluate_big_image(big_image, rules_config)
 
     assert result is big_image
-    assert [rule.name for rule in result.evaluation.rules] == ["rule8", "rule13"]
-    assert result.evaluation.current_score == 5
-    assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score", "feature", "score"]
+    assert [rule.name for rule in result.evaluation.rules] == ["rule13"]
+    assert result.evaluation.current_score == 2
+    assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score"]
 
 
 def test_evaluate_big_image_raises_input_error_when_big_image_missing():
