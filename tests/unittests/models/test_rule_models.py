@@ -1,7 +1,9 @@
 import pytest
+from src.models.enums import ContinuityModeName
 from src.models.rule_models import (
     Rule8Config, Rule8Feature, Rule8Score,
     Rule11Config, Rule11Feature,
+    Rule16Config, Rule17Config,
     get_feature_class, get_score_class
 )
 
@@ -21,7 +23,6 @@ class TestFieldConstraints:
 
     def test_rule17_continuity_mode_list_valid(self):
         """✅ 校验 Rule17Config 使用 continuity_mode_list 字段"""
-        from src.models.rule_models import Rule17Config
         input_dict = RULE17_CONFIG_DICT
         config = Rule17Config.model_validate(input_dict)
         assert config.continuity_mode_list == []
@@ -29,9 +30,13 @@ class TestFieldConstraints:
 
     def test_rule17_continuity_mode_list_default(self):
         """✅ 校验 Rule17Config 默认 continuity_mode_list 类型为 List[str]"""
-        from src.models.rule_models import Rule17Config
         config = Rule17Config.model_validate(RULE17_CONFIG_DICT)
         assert isinstance(config.continuity_mode_list, list)
+
+    def test_rule16_continuity_mode_list_uses_continuity_mode_enum(self):
+        config = Rule16Config.model_validate({"continuity_mode_list": ["continuity_1"]})
+
+        assert config.continuity_mode_list == [ContinuityModeName.CONTINUITY_1]
 
     def test_rule8_groove_width_valid(self):
         """✅ 校验规则 15：groove_width > 0"""

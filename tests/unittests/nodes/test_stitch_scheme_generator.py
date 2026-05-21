@@ -4,6 +4,7 @@ import pytest
 
 from src.common.exceptions import InputDataError
 from src.models.enums import (
+    ContinuityModeName,
     ImageFormatEnum,
     ImageModeEnum,
     LevelEnum,
@@ -27,7 +28,9 @@ from src.models.rule_models import (
     GrooveSizeItem,
     RibSizeItem,
     Rule1Config,
+    Rule12Config,
     Rule1Score,
+    Rule16Config,
     Rule2Config,
     Rule3Config,
     Rule100Config,
@@ -123,7 +126,7 @@ def generate_lineage_for_test(
 
 
 class Rule3Template(StitchingTemplate):
-    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_1
+    name: ContinuityModeName = ContinuityModeName.CONTINUITY_1
     description: str = "rule3 test template"
     rib_number: int = 5
     mode: str = "test"
@@ -165,14 +168,33 @@ def test_filter_templates_filters_symmetry_by_enabled_rules():
         StitchingSchemeName.SYMMETRY_0,
     ]
     expected_continuity_template_names = [
-        StitchingSchemeName.CONTINUITY_0,
-        StitchingSchemeName.CONTINUITY_1,
-        StitchingSchemeName.CONTINUITY_2,
+        ContinuityModeName.CONTINUITY_0,
     ]
 
     assert [template.name for template in all_symmetry_templates] == expected_all_symmetry_template_names
     assert [template.name for template in missing_rule2_symmetry_templates] == expected_missing_rule2_symmetry_template_names
     assert [template.name for template in continuity_templates] == expected_continuity_template_names
+
+
+def test_filter_templates_uses_user_continuity_mode_names():
+    _, continuity_templates = _filter_templates(
+        [Symmetry0(), Continuity0(), Continuity1(), Continuity2()],
+        target_rib_number=5,
+        configs=[
+            Rule1Config(),
+            Rule12Config(
+                continuity_ratio_lower=0.0,
+                continuity_ratio_upper=1.0,
+                continuity_mode_list=[ContinuityModeName.CONTINUITY_1],
+            ),
+            Rule16Config(continuity_mode_list=[ContinuityModeName.CONTINUITY_2]),
+        ],
+    )
+
+    assert [template.name for template in continuity_templates] == [
+        ContinuityModeName.CONTINUITY_1,
+        ContinuityModeName.CONTINUITY_2,
+    ]
 
 
 def test_small_image_content_hash_ignores_data_url_prefix():
@@ -276,7 +298,7 @@ def test_rank_candidates_changes_tie_break_order_when_image_content_changes():
     before_change_candidate = _CandidateScheme(
         _TemplateCombination(Symmetry0(), Continuity0()),
         (
-            make_small_image(RegionEnum.SIDE, "var-0", 1),
+            make_small_image(RegionEnum.SIDE, "var-a", 1),
             make_small_image(RegionEnum.CENTER, "same-center", 1),
         ),
         total_score=2,
@@ -284,7 +306,7 @@ def test_rank_candidates_changes_tie_break_order_when_image_content_changes():
     after_change_candidate = _CandidateScheme(
         _TemplateCombination(Symmetry0(), Continuity0()),
         (
-            make_small_image(RegionEnum.SIDE, "other-0", 1),
+            make_small_image(RegionEnum.SIDE, "var-0", 1),
             make_small_image(RegionEnum.CENTER, "same-center", 1),
         ),
         total_score=2,
@@ -352,8 +374,8 @@ def test_registered_templates_include_builtin_templates():
     assert {
         StitchingSchemeName.SYMMETRY_0,
         StitchingSchemeName.SYMMETRY_1,
-        StitchingSchemeName.CONTINUITY_0,
-        StitchingSchemeName.CONTINUITY_2,
+        ContinuityModeName.CONTINUITY_0,
+        ContinuityModeName.CONTINUITY_2,
     } <= template_names
 
 
@@ -395,9 +417,7 @@ def test_filter_templates_uses_configs_selected_by_stitch_scheme_generator_regis
         StitchingSchemeName.SYMMETRY_0,
     ]
     expected_continuity_template_names = [
-        StitchingSchemeName.CONTINUITY_0,
-        StitchingSchemeName.CONTINUITY_1,
-        StitchingSchemeName.CONTINUITY_2,
+        ContinuityModeName.CONTINUITY_0,
     ]
 
     assert [config.name for config in configs] == expected_config_names
@@ -907,14 +927,16 @@ def test_generate_stitch_scheme_logs_key_execution_steps(caplog):
         generate_stitch_scheme(make_big_image(), small_images, rules_config, 1)
 
     messages = [record.message for record in caplog.records]
-    expected_formula_log = "公式=A[2,2]*A[3,3] + A[2,2]*A[3,3] + A[2,2]*A[3,3] = 12 + 12 + 12 = 36"
-    expected_candidate_count_log = "生成方案数量: 36"
+    expected_continuity_config_log = "连续性配置: continuity_mode_list=[continuity_0]"
+    expected_formula_log = "公式=A[2,2]*A[3,3] = 12 = 12"
+    expected_candidate_count_log = "生成方案数量: 12"
     expected_top_score_templates_log = "最高分模板组合:"
     expected_rib_lineage_log = "lineage.rib[1]:"
     expected_groove_lineage_log = "lineage.groove[1]:"
     expected_decoration_lineage_log = "lineage.decoration[1]:"
 
     assert any("小图数量:" in message for message in messages)
+    assert any(expected_continuity_config_log in message for message in messages)
     assert any("准备工作:" in message for message in messages)
     assert any("排列思路:" in message for message in messages)
     assert any(expected_formula_log in message for message in messages)

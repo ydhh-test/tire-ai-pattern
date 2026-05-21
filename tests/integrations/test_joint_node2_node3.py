@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 from src.models.enums import (
+    ContinuityModeName,
     ImageFormatEnum,
     ImageModeEnum,
     LevelEnum,
@@ -175,17 +176,17 @@ RULES_CONFIG_CASE2 = [
         max_score=6,
         continuity_ratio_upper=0.7,
         continuity_ratio_lower=0.6,
-        continuity_mode_list=["continuity_0", "continuity_1"],
+        continuity_mode_list=[ContinuityModeName.CONTINUITY_0, ContinuityModeName.CONTINUITY_1],
     ),
     Rule16Config(
         description="中心RIB上的横沟或横向钢片可任意组合连续性",
         max_score=4,
-        continuity_mode_list=["continuity_0", "continuity_1"],
+        continuity_mode_list=[ContinuityModeName.CONTINUITY_0, ContinuityModeName.CONTINUITY_1],
     ),
     Rule17Config(
         description="边缘RIB上的横沟或横向钢片可任意组合连续性",
         max_score=6,
-        continuity_mode_list=["continuity_0"],
+        continuity_mode_list=[ContinuityModeName.CONTINUITY_0],
     ),
 ]
 
@@ -694,7 +695,7 @@ class TestJointNode2Node3:
             make_real_small_image(RegionEnum.SIDE, "rib5.png", 5),
         ]
 
-        result = run_joint_pipeline(small_images, RULES_CONFIG_CASE1, scheme_rank=14)
+        result = run_joint_pipeline(small_images, RULES_CONFIG_CASE1, scheme_rank=11)
 
         # 1. lineage 结构校验
         lineage: ImageLineage = result.lineage
@@ -749,7 +750,7 @@ class TestJointNode2Node3:
     def test_joint_continuity1_operations(self):
         """用例 2：Symmetry0 + Continuity1 操作管线，验证 RESIZE_H_2X 和 same_as 继承。
 
-        配置同用例 1（RULES_CONFIG_CASE2，相同 small_images），scheme_rank=1 选中 Continuity1。
+        配置同用例 1（RULES_CONFIG_CASE2，相同 small_images），scheme_rank=14 选中 Continuity1。
         Continuity1 = RIB2-RIB3 连续：rib2 和 rib3 共享同一张 CENTER 图片，
         rib2 执行 RESIZE_H_2X + LEFT，rib3(2) 执行 RESIZE_H_2X + RIGHT。
         """
@@ -763,7 +764,7 @@ class TestJointNode2Node3:
             make_real_small_image(RegionEnum.SIDE, "rib5.png", 5),
         ]
 
-        result = run_joint_pipeline(small_images, RULES_CONFIG_CASE2, scheme_rank=1)
+        result = run_joint_pipeline(small_images, RULES_CONFIG_CASE2, scheme_rank=14)
 
         lineage: ImageLineage = result.lineage
         assert lineage.stitching_scheme.stitching_scheme_abstract.name == \

@@ -16,7 +16,7 @@
 
 from typing import Optional, List, Dict, Type
 from pydantic import BaseModel, Field
-from .enums import RuleTypeEnum
+from .enums import ContinuityModeName, RuleTypeEnum
 
 from src.models.enums import RegionEnum
 
@@ -467,7 +467,7 @@ class Rule12Config(BaseRuleConfig):
     rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
     continuity_ratio_upper: float = Field(description="连续性占比上界")
     continuity_ratio_lower: float = Field(description="连续性占比下界")
-    continuity_mode_list: List[str] = Field(description="连续性模式列表")
+    continuity_mode_list: List[ContinuityModeName] = Field(description="连续性模式列表")
 
 
 @register_rule_feature
@@ -569,7 +569,7 @@ class Rule16Config(BaseRuleConfig):
     description: str = "中心RIB上的横沟或横向钢片可任意组合连续性"
     max_score: int = 4
     rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
-    continuity_mode_list: List[str] = Field(description="连续性模式列表")
+    continuity_mode_list: List[ContinuityModeName] = Field(description="连续性模式列表")
 
 
 class Rule17Config(BaseRuleConfig):
@@ -577,7 +577,7 @@ class Rule17Config(BaseRuleConfig):
     description: str = "边缘RIB上的横沟或横向钢片可任意组合连续性"
     max_score: int = 6
     rule_type: RuleTypeEnum = RuleTypeEnum.BIG_IMAGE
-    continuity_mode_list: List[str] = Field(description="连续性模式列表")
+    continuity_mode_list: List[ContinuityModeName] = Field(description="连续性模式列表")
 
 
 @register_rule_feature

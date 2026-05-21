@@ -20,7 +20,7 @@
 from typing import Optional, List, Tuple, Union
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from .enums import RegionEnum, SourceTypeEnum, StitchingSchemeName, RibOperation
+from .enums import ContinuityModeName, RegionEnum, SourceTypeEnum, StitchingSchemeName, RibOperation
 from .rule_models import Rule1Config, Rule2Config, Rule3Config
 from .template_registry import register_stitching_template
 
@@ -71,7 +71,7 @@ class StitchingTemplate(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    name: StitchingSchemeName = Field(description="拼接方案名称枚举")
+    name: Union[StitchingSchemeName, ContinuityModeName] = Field(description="拼接方案名称枚举")
     description: str = Field(description="方案描述")
     rib_number: int = Field(description="RIB数量")
     mode: str = Field(description="模式")
@@ -236,7 +236,7 @@ class Symmetry6(StitchingTemplate):
 class Continuity0(StitchingTemplate):
     """5个rib无操作，不修改对称性方案"""
 
-    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_0
+    name: ContinuityModeName = ContinuityModeName.CONTINUITY_0
     description: str = "5个rib无操作，不修改对称性方案"
     rib_number: int = 5
     mode: str = "continuity"
@@ -254,7 +254,7 @@ class Continuity0(StitchingTemplate):
 class Continuity1(StitchingTemplate):
     """拼接模板：continuity_1 - 5个rib，RIB2-RIB3连续，边缘独立"""
 
-    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_1
+    name: ContinuityModeName = ContinuityModeName.CONTINUITY_1
     description: str = "5个rib，RIB2-RIB3连续，边缘独立"
     rib_number: int = 5
     mode: str = "continuity"
@@ -271,7 +271,7 @@ class Continuity1(StitchingTemplate):
 class Continuity2(StitchingTemplate):
     """拼接模板：continuity_2 - 5个rib，RIB3-RIB4连续，边缘独立"""
 
-    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_2
+    name: ContinuityModeName = ContinuityModeName.CONTINUITY_2
     description: str = "5个rib，RIB3-RIB4连续，边缘独立"
     rib_number: int = 5
     mode: str = "continuity"
@@ -288,7 +288,7 @@ class Continuity2(StitchingTemplate):
 class Continuity3(StitchingTemplate):
     """拼接模板：continuity_3 - 4个rib，RIB2-RIB3连续，边缘独立"""
 
-    name: StitchingSchemeName = StitchingSchemeName.CONTINUITY_3
+    name: ContinuityModeName = ContinuityModeName.CONTINUITY_3
     description: str = "4个rib，RIB2-RIB3连续，边缘独立"
     rib_number: int = 4
     mode: str = "continuity"
@@ -351,7 +351,7 @@ class RibSchemeImpl(BaseModel):
 class StitchingSchemeAbstract(BaseModel):
     """拼接方案摘要 - 人类可读的方案描述信息"""
 
-    name: StitchingSchemeName = Field(description="方案名称枚举")
+    name: Union[StitchingSchemeName, ContinuityModeName] = Field(description="方案名称枚举")
     description: str = Field(description="方案描述")
     rib_number: int = Field(description="RIB数量")
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from src.models.image_models import BaseImage
 from src.models.rule_models import Rule12Config, Rule12Feature, Rule12Score
-from src.models.enums import StitchingSchemeName
+from src.models.enums import ContinuityModeName
 from src.rules.base import RuleExecutor
 from src.rules.registry import register_rule_executor
 
@@ -21,7 +21,7 @@ class Rule12Executor(RuleExecutor):
 
         non_zero_count = sum(
             1 for mode in config.continuity_mode_list
-            if mode != StitchingSchemeName.CONTINUITY_0.value
+            if mode != ContinuityModeName.CONTINUITY_0.value
         )
         ratio = non_zero_count / len(config.continuity_mode_list)
         return Rule12Feature(continuity_ratio=ratio)
