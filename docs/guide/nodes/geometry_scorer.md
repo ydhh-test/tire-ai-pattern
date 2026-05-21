@@ -242,18 +242,22 @@ $$\text{总分} = \left( \frac{\sum \text{实际得分}}{\sum \text{最大可能
 
 ```python
 def calculate_geometric_scores(
-    tire_struct: TireStruct,
-) -> TireStruct:
+    big_image: BigImage,
+    small_images: Sequence[SmallImage],
+    rules_config: Sequence[BaseRuleConfig],
+) -> BigImage:
     """
-    几何合理性业务评分封装函数（类实现），主函数
+    几何合理性业务评分封装函数（节点层接口）
     
-    输入为 TireStruct，输出为 TireStruct，自动从 TireStruct 中提取参数并调用核心评分函数。
+    输入为大图、小图列表和规则配置，输出为更新评分后的大图。
     
     Args:
-        tire_struct: 包含大图、小图、血缘信息和规则配置的 TireStruct 对象
+        big_image: 已完成 feature 计算的大图对象
+        small_images: 小图列表，包含各小图的 evaluation 字段
+        rules_config: 规则配置列表，定义各规则的 max_score
     
     Returns:
-        TireStruct: 处理后的 TireStruct，big_image.scores.compliance 已更新
+        BigImage: 更新评分后的大图对象，big_image.scores.compliance 已更新
     """
 ```
 
@@ -261,7 +265,9 @@ def calculate_geometric_scores(
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `tire_struct` | `TireStruct` | 是 | 包含大图、小图、血缘信息和规则配置的完整数据结构 |
+| `big_image` | `BigImage` | 是 | 已完成 feature 计算的大图对象 |
+| `small_images` | `Sequence[SmallImage]` | 是 | 小图列表，包含各小图的 evaluation 字段 |
+| `rules_config` | `Sequence[BaseRuleConfig]` | 是 | 规则配置列表，定义各规则的 max_score |
 
 ### 6.3 核心内部函数
 
@@ -404,8 +410,12 @@ def generate_big_image_with_evaluation(tire_struct: TireStruct) -> TireStruct:
     # 节点5：几何合理性评分
     from src.nodes.geometry_scorer import calculate_geometric_scores
     
-    # 直接传入 TireStruct，结果自动更新到 big_image.scores.compliance
-    tire_struct = calculate_geometric_scores(tire_struct)
+    # 传入大图、小图列表和规则配置，结果自动更新到 big_image.scores.compliance
+    tire_struct.big_image = calculate_geometric_scores(
+        big_image=tire_struct.big_image,
+        small_images=tire_struct.small_images,
+        rules_config=tire_struct.rules_config
+    )
     tire_struct.flag = True
     
     return tire_struct
@@ -419,8 +429,12 @@ def generate_big_image_with_evaluation(tire_struct: TireStruct) -> TireStruct:
 def update_big_image_score(tire_struct: TireStruct) -> TireStruct:
     from src.nodes.geometry_scorer import calculate_geometric_scores
     
-    # 直接传入 TireStruct，结果自动更新到 big_image.scores.compliance
-    tire_struct = calculate_geometric_scores(tire_struct)
+    # 传入大图、小图列表和规则配置，结果自动更新到 big_image.scores.compliance
+    tire_struct.big_image = calculate_geometric_scores(
+        big_image=tire_struct.big_image,
+        small_images=tire_struct.small_images,
+        rules_config=tire_struct.rules_config
+    )
     tire_struct.flag = True
     
     return tire_struct

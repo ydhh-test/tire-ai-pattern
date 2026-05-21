@@ -89,7 +89,7 @@ def test_select_node_configs_filters_and_uses_node_order():
 
     selected = select_node_configs(configs, SMALL_IMAGE_EVALUATOR_CONFIGS)
 
-    assert [config.name for config in selected] == ["rule6", "rule11"]
+    assert [config.name for config in selected] == ["rule6", "rule8", "rule11"]
 
 
 def test_validate_no_duplicate_config_types_rejects_duplicate_type():

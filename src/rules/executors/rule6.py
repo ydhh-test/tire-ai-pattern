@@ -14,15 +14,16 @@ class Rule6Executor(RuleExecutor):
         self,
         image: BaseImage,
         config: Rule6Config,
+        is_debug: bool = False,
     ) -> Rule6Feature:
         import cv2
         from src.core.detection.pattern_continuity import detect_pattern_continuity
         from src.utils.image_utils import base64_to_ndarray
-
+        
         bgr = base64_to_ndarray(image.image_base64)
         gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
         is_continuous, _, _ = detect_pattern_continuity(gray)
-
+        
         return Rule6Feature(is_continuous=is_continuous)
 
     def exec_score(

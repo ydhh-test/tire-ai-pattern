@@ -580,9 +580,10 @@ def run_e2e_geometry_scorer(config: dict, output_dir: str = "./.results/tire_des
     logger.debug("=" * 50)
     # ========== END DEBUG ==========
     
-    # 步骤2: 调用 calculate_geometric_scores（使用 TireStruct 接口）
+    # 步骤2: 调用 calculate_geometric_scores（使用节点层接口）
     logger.info("步骤2: 调用calculate_geometric_scores...")
-    result_tire_struct = calculate_geometric_scores(tire_struct)
+    rules_config = tire_struct.rules_config if hasattr(tire_struct, 'rules_config') else []
+    result_big_image = calculate_geometric_scores(big_image, small_images, rules_config)
     logger.info("calculate_geometric_scores执行完成")
     
     # 步骤3: 调用 _calculate_geometric_scores 获取详细结果（用于输出）

@@ -6,13 +6,12 @@ feature 重新评分的场景。
 """
 
 from __future__ import annotations
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Sequence
 
 from src.common.exceptions import InputDataError
 from src.models.enums import RuleTypeEnum
 from src.models.image_models import BigImage, SmallImage, ImageLineage, ImageScore
 from src.models.rule_models import BaseRuleConfig
-from src.models.tire_struct import TireStruct
 from src.nodes.base import GEOMETRY_SCORER_CONFIGS, RuleRunner, recalculate_current_score, select_node_configs
 
 
@@ -93,30 +92,29 @@ def score_geometry(
 
 
 def calculate_geometric_scores(
-    tire_struct: TireStruct,
-) -> TireStruct:
+    big_image: BigImage,
+    small_images: Sequence[SmallImage],
+    rules_config: Sequence[BaseRuleConfig],
+) -> BigImage:
     """
-    几何合理性业务评分封装函数（类实现），主函数
+    几何合理性业务评分封装函数（节点层接口）
 
-    输入为 TireStruct，输出为 TireStruct，自动从 TireStruct 中提取参数并调用核心评分函数。
+    输入为大图、小图列表和规则配置，输出为更新评分后的大图。
 
     Args:
-        tire_struct: 包含大图、小图、血缘信息和规则配置的 TireStruct 对象
+        big_image: 已完成 feature 计算的大图对象
+        small_images: 小图列表，包含各小图的 evaluation 字段
+        rules_config: 规则配置列表，定义各规则的 max_score
 
     Returns:
-        TireStruct: 处理后的 TireStruct，big_image.scores.compliance 已更新
+        BigImage: 更新评分后的大图对象，big_image.scores.compliance 已更新
 
     Raises:
         InputDataError: 当必要参数缺失时抛出
     """
     # ========== 最外层参数校验（统一入口） ==========
 
-    # 校验 tire_struct
-    if tire_struct is None:
-        raise InputDataError(NODE_NAME, "tire_struct", "tire_struct is required")
-
     # 校验 big_image
-    big_image = tire_struct.big_image
     if big_image is None:
         raise InputDataError(NODE_NAME, "big_image", "big_image is required")
 
@@ -132,10 +130,6 @@ def calculate_geometric_scores(
     lineage = big_image.lineage
     if lineage is None:
         raise InputDataError(NODE_NAME, "big_image.lineage", "big_image.lineage is required")
-
-    # ========== 参数提取 ==========
-    small_images = tire_struct.small_images
-    rules_config = tire_struct.rules_config
 
     # ========== 调用核心评分函数 ==========
     score_result = _calculate_geometric_scores(
@@ -159,7 +153,7 @@ def calculate_geometric_scores(
     if not compliance_score_exists:
         big_image.scores.append(ImageScore(compliance=score_result['total_score']))
 
-    return tire_struct
+    return big_image
 
 
 def _calculate_geometric_scores(

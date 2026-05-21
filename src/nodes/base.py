@@ -40,6 +40,7 @@ from src.rules.runner import RuleRunner
 
 SMALL_IMAGE_EVALUATOR_CONFIGS: list[type[BaseRuleConfig]] = [
     Rule6Config,
+    Rule8Config,
     Rule11Config,
 ]
 

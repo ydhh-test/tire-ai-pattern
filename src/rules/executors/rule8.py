@@ -15,6 +15,7 @@ class Rule8Executor(RuleExecutor):
         self,
         image: BaseImage,
         config: Rule8Config,
+        is_debug: bool = False,
     ) -> Rule8Feature:
         from src.core.detection.groove_intersection import detect_transverse_grooves
         from src.utils.image_utils import base64_to_ndarray

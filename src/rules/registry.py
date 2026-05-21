@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TypeVar
 
-from src.rules.base import RuleExecutor
+from src.rules.base import RuleExecutor, BaseRuleConfig
 
 ExecutorT = TypeVar("ExecutorT", bound=type[RuleExecutor])
 
@@ -49,3 +49,7 @@ def register_rule_executor(cls: ExecutorT) -> ExecutorT:
 
 def get_rule_executor(rule_name: str) -> RuleExecutor:
     return _GLOBAL_REGISTRY.get(rule_name)
+
+
+def get_rule(rule_name: str) -> BaseRuleConfig:
+    return _GLOBAL_REGISTRY.get(rule_name).rule_cls

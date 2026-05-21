@@ -4,7 +4,17 @@ import pytest
 
 from src.models.enums import ImageFormatEnum, ImageModeEnum, LevelEnum, RegionEnum, SourceTypeEnum
 from src.models.image_models import BigImage, ImageBiz, ImageMeta, SmallImage
-from src.models.rule_models import Rule6Config, Rule6Feature, Rule6Score, Rule8Config, Rule11Config, Rule11Feature, Rule11Score
+from src.models.rule_models import (
+    Rule6Config,
+    Rule6Feature,
+    Rule6Score,
+    Rule8Config,
+    Rule8Feature,
+    Rule8Score,
+    Rule11Config,
+    Rule11Feature,
+    Rule11Score,
+)
 from src.nodes.small_image_evaluator import evaluate_small_images
 
 
@@ -59,6 +69,8 @@ class FakeRuleRunner:
         FakeRuleRunner.calls.append(("feature", image.image_base64, config.name, is_debug))
         if config.name == "rule6":
             return Rule6Feature(is_continuous=True)
+        if config.name == "rule8":
+            return Rule8Feature(num_transverse_grooves=2)
         if config.name == "rule11":
             return Rule11Feature(num_longitudinal_grooves=2, region=image.biz.region)
         raise AssertionError(f"unexpected feature config {config.name}")
@@ -68,6 +80,8 @@ class FakeRuleRunner:
         FakeRuleRunner.calls.append(("score", config.name, feature.name))
         if config.name == "rule6":
             return Rule6Score(score=6)
+        if config.name == "rule8":
+            return Rule8Score(score=4)
         if config.name == "rule11":
             return Rule11Score(score=4)
         raise AssertionError(f"unexpected score config {config.name}")
@@ -89,11 +103,24 @@ def test_evaluate_small_images_writes_independent_evaluations_in_node_order(monk
     result = evaluate_small_images(small_images, rules_config)
 
     assert result is small_images
-    assert [rule.name for rule in result[0].evaluation.rules] == ["rule6", "rule11"]
-    assert [rule.name for rule in result[1].evaluation.rules] == ["rule6", "rule11"]
+    assert [rule.name for rule in result[0].evaluation.rules] == ["rule6", "rule8", "rule11"]
+    assert [rule.name for rule in result[1].evaluation.rules] == ["rule6", "rule8", "rule11"]
     assert result[0].evaluation is not result[1].evaluation
-    assert result[0].evaluation.current_score == 10
-    assert [call[0] for call in FakeRuleRunner.calls] == ["feature", "score", "feature", "score", "feature", "score", "feature", "score"]
+    assert result[0].evaluation.current_score == 14
+    assert [call[0] for call in FakeRuleRunner.calls] == [
+        "feature",
+        "score",
+        "feature",
+        "score",
+        "feature",
+        "score",
+        "feature",
+        "score",
+        "feature",
+        "score",
+        "feature",
+        "score",
+    ]
 
 
 def test_evaluate_small_images_does_not_handle_runner_exception(monkeypatch):

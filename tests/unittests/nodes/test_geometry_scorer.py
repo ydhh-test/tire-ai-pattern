@@ -69,17 +69,16 @@
   2. 规则名大小写不敏感：规则名大小写不同仍能正确匹配
   3. 规则名不存在：未找到配置实例时，默认返回 RuleTypeEnum.BIG_IMAGE
 
-十、异常处理测试 - 4个
+十、异常处理测试 - 3个
   设计角度：
-  1. tire_struct为None：calculate_geometric_scores 传入 None 抛出 InputDataError
-  2. big_image为None：tire_struct.big_image 为 None 抛出 InputDataError
-  3. evaluation为None：big_image.evaluation 为 None 抛出 InputDataError
-  4. lineage为None：big_image.lineage 为 None 抛出 InputDataError
+  1. big_image为None：tire_struct.big_image 为 None 抛出 InputDataError
+  2. evaluation为None：big_image.evaluation 为 None 抛出 InputDataError
+  3. lineage为None：big_image.lineage 为 None 抛出 InputDataError
 
 十一、小图筛选机制测试 - 2个
   设计角度：
-  1. 区域匹配筛选：仅 biz.region.value 在 used_regions 中的小图参与计算
-  2. region为None：小图 biz.region 为 None 时不参与计算
+  1. 区域匹配筛选：仅 image_base64 在 used_regions 中的小图参与计算
+  2. image_base64为None：小图 image_base64 为 None 时不参与计算
 ========================
 """
 
@@ -302,13 +301,13 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
         ], [image_data, image_data, image_data])
         
-        # 创建 TireStruct 并调用新接口
-        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
-        result_tire_struct = calculate_geometric_scores(tire_struct)
+        # 直接调用新接口
+        result_big_image = calculate_geometric_scores(big_image, small_images, self.rule_configs)
         
         # 验证 compliance_score
-        self.assertEqual(len(result_tire_struct.big_image.scores), 1)
-        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, 100)
+        self.assertEqual(len(result_big_image.scores), 1)
+        expected = 100
+        self.assertEqual(result_big_image.scores[0].compliance, expected)
     
     def test_e2e_small_image_partial_satisfied(self):
         """端到端-2: 小图规则部分满足，期望 compliance_score=81"""
@@ -323,11 +322,10 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
             {'rule6': 10, 'rule8': 4, 'rule14': 2},
         ], [image_data, image_data, image_data])
         
-        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
-        result_tire_struct = calculate_geometric_scores(tire_struct)
+        result_big_image = calculate_geometric_scores(big_image, small_images, self.rule_configs)
         
         expected = 81
-        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
+        self.assertEqual(result_big_image.scores[0].compliance, expected)
     
     def test_e2e_big_image_partial_score(self):
         """端到端-3: 大图规则部分得分，期望 compliance_score=81"""
@@ -340,11 +338,10 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
             {'rule6': 5, 'rule8': 2, 'rule14': 1},
         ], [image_data])
         
-        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
-        result_tire_struct = calculate_geometric_scores(tire_struct)
+        result_big_image = calculate_geometric_scores(big_image, small_images, self.rule_configs)
         
         expected = 81
-        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
+        self.assertEqual(result_big_image.scores[0].compliance, expected)
     
     def test_e2e_only_default_rules_scored(self):
         """端到端-4: 仅默认规则得分，期望 compliance_score=62"""
@@ -359,11 +356,10 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
             {'rule6': 0, 'rule8': 0, 'rule14': 0},
         ], [image_data, image_data, image_data])
         
-        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
-        result_tire_struct = calculate_geometric_scores(tire_struct)
+        result_big_image = calculate_geometric_scores(big_image, small_images, self.rule_configs)
         
         expected = 62
-        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, expected)
+        self.assertEqual(result_big_image.scores[0].compliance, expected)
     
     def test_e2e_empty_small_images(self):
         """端到端-5: 空小图列表，小图规则得0分"""
@@ -374,11 +370,11 @@ class TestCalculateGeometricScoresE2E(unittest.TestCase):
         }, lineage)
         small_images = []
         
-        tire_struct = _create_mock_tire_struct(big_image, small_images, self.rule_configs)
-        result_tire_struct = calculate_geometric_scores(tire_struct)
+        result_big_image = calculate_geometric_scores(big_image, small_images, self.rule_configs)
         
         # 验证 compliance_score（小图规则得0分，总分 = (2+0+0+0+10+20)/48*100 = 66.67 → 67）
-        self.assertEqual(result_tire_struct.big_image.scores[0].compliance, 67)
+        expected = 67
+        self.assertEqual(result_big_image.scores[0].compliance, expected)
     
     @classmethod
     def tearDownClass(cls):
@@ -819,32 +815,24 @@ class TestGetRuleType(unittest.TestCase):
 class TestExceptionHandling(unittest.TestCase):
     """异常处理测试（3个用例）"""
     
-    def test_tire_struct_is_none(self):
-        """tire_struct为None：抛出 InputDataError"""
-        with self.assertRaises(InputDataError):
-            calculate_geometric_scores(None)
-    
     def test_big_image_is_none(self):
         """big_image为None：抛出 InputDataError"""
-        tire_struct = _create_mock_tire_struct(big_image=None)
         with self.assertRaises(InputDataError):
-            calculate_geometric_scores(tire_struct)
+            calculate_geometric_scores(None, [], [])
     
     def test_evaluation_is_none(self):
         """evaluation为None：抛出 InputDataError"""
         big_image = _create_mock_big_image(None)
         big_image.lineage = _create_mock_lineage([])
-        tire_struct = _create_mock_tire_struct(big_image=big_image)
         with self.assertRaises(InputDataError):
-            calculate_geometric_scores(tire_struct)
+            calculate_geometric_scores(big_image, [], [])
     
     def test_lineage_is_none(self):
         """lineage为None：抛出 InputDataError"""
         big_image = _create_mock_big_image(_create_mock_evaluation([]))
         big_image.lineage = None
-        tire_struct = _create_mock_tire_struct(big_image=big_image)
         with self.assertRaises(InputDataError):
-            calculate_geometric_scores(tire_struct)
+            calculate_geometric_scores(big_image, [], [])
 
 
 # ========================
@@ -879,9 +867,10 @@ class TestSmallImageFiltering(unittest.TestCase):
                     break
         
         expected_len = 2
+        expected_images = ['image_data_1', 'image_data_2']
         self.assertEqual(len(effective), expected_len)
-        self.assertEqual(effective[0].image_base64, 'image_data_1')
-        self.assertEqual(effective[1].image_base64, 'image_data_2')
+        self.assertEqual(effective[0].image_base64, expected_images[0])
+        self.assertEqual(effective[1].image_base64, expected_images[1])
     
     def test_image_base64_is_none(self):
         """image_base64为None：小图 image_base64 为 None 时不参与计算"""
