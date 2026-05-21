@@ -1,4 +1,4 @@
-"""
+﻿"""
 Node2 + Node3 联调集成测试
 
 端到端验证 generate_stitch_scheme → stitch_big_image 的完整管线。

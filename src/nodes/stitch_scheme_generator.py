@@ -1,4 +1,4 @@
-"""Node2：基于已评分小图生成并排序拼接方案。"""
+﻿"""Node2：基于已评分小图生成并排序拼接方案。"""
 
 from __future__ import annotations
 
