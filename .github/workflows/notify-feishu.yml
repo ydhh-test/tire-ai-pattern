@@ -43,7 +43,7 @@ jobs:
             SENDER=$(jq -r '.sender.login' "$GITHUB_EVENT_PATH")
           fi
 
-          if [ "$EVENT_NAME" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
             PR_TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
             PR_URL=$(jq -r '.pull_request.html_url' "$GITHUB_EVENT_PATH")
             PR_USER=$(jq -r '.pull_request.user.login' "$GITHUB_EVENT_PATH")
@@ -63,7 +63,7 @@ jobs:
             TITLE="✅ Issue 已关闭: ${ISSUE_TITLE}"
             BODY="仓库: **${REPO}**  \n关闭者: ${SENDER}  \n[查看详情](${ISSUE_URL})"
 
-          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "opened" ]; then
+          elif [ "$EVENT_NAME" = "pull_request_target" ] && [ "$EVENT_ACTION" = "opened" ]; then
             SKIP=false
             TITLE="🔀 新 PR: ${PR_TITLE}"
             BODY="仓库: **${REPO}**  \n作者: ${PR_USER}  \n分支: ${PR_HEAD} → ${PR_BASE}  \n[查看详情](${PR_URL})"
@@ -72,7 +72,7 @@ jobs:
               BODY="${BODY}  \n${AT_ME}"
             fi
 
-          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "closed" ] && [ "$PR_MERGED" = "true" ]; then
+          elif [ "$EVENT_NAME" = "pull_request_target" ] && [ "$EVENT_ACTION" = "closed" ] && [ "$PR_MERGED" = "true" ]; then
             SKIP=false
             AT_PR_AUTHOR=$(resolve_at "${PR_USER}")
             TITLE="🎉 PR 已合并: ${PR_TITLE}"
