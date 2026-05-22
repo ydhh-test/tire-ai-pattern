@@ -12,7 +12,7 @@
 | S1 | 新增 `DecorationPositionEnum` | `src/models/enums.py` | — |
 | S2 | 同步 `DecorationItem.position` 类型 | `src/models/rule_models.py` | S1 |
 | S3 | 创建共享 builder `_builder.py` | `src/config/_builder.py` | S2 |
-| S4 | 创建 11 个参考配置文件 + `__init__.py` + 软链接 | `example/ref_configs/*.py` (11个) + `example/__init__.py` + `tests/datasets/ref_configs` | S3 |
+| S4 | 创建 11 个参考配置文件（example + tests 两份副本） | `example/ref_configs/*.py` (11个) + `tests/datasets/ref_configs/*.py` (11个) | S3 |
 
 ---
 
@@ -1097,7 +1097,7 @@ print('_builder.py loaded successfully')
 ```bash
 # 每个配置文件需验证：导入不报错、tire_struct 可构造
 python -c "
-from example.ref_configs import cfg_5rib_sym0_no_cont
+from tests.datasets.ref_configs import cfg_5rib_sym0_no_cont
 assert cfg_5rib_sym0_no_cont.tire_struct.scheme_rank == 1
 assert len(cfg_5rib_sym0_no_cont.tire_struct.small_images) == 5
 assert len(cfg_5rib_sym0_no_cont.tire_struct.rules_config) == 4  # rule1 + 100/101/102
@@ -1105,7 +1105,7 @@ print('1.1 OK')
 "
 
 python -c "
-from example.ref_configs import cfg_4rib_sym456_no_cont
+from tests.datasets.ref_configs import cfg_4rib_sym456_no_cont
 assert len(cfg_4rib_sym456_no_cont.tire_struct.small_images) == 4
 assert len(cfg_4rib_sym456_no_cont.tire_struct.rules_config) == 6  # rule1+2+3 + 100/101/102
 print('1.9 OK')
@@ -1116,7 +1116,7 @@ print('1.9 OK')
 
 ```python
 # tests/integrations/test_ref_configs.py（参考示例，不必创建）
-from example.ref_configs import cfg_5rib_sym0_no_cont
+from tests.datasets.ref_configs import cfg_5rib_sym0_no_cont
 from src.piplines.pipline1 import run_pipeline1
 
 result = run_pipeline1(cfg_5rib_sym0_no_cont.tire_struct)

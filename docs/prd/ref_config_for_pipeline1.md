@@ -20,8 +20,8 @@
 
 | 场景 | 使用方式 |
 |---|---|
-| 用户参考 & 修改参数 | 查看/编辑模块内的 `CONFIG` dict |
-| 直接跑 pipeline1 (测试 / 调用) | 导入模块的 `tire_struct`，直接传给 `run_pipeline1()` |
+| 用户参考 & 修改参数 | 查看/编辑 `example/ref_configs/` 下的 `.py` 文件 |
+| 测试（CI / 本地验证） | 导入 `tests.datasets.ref_configs` 中的 `cfg_xxx` 模块（版本受控，不被用户修改影响） |
 
 ### 1.3 核心理念：Python dict，表达式为值
 
@@ -107,23 +107,27 @@ tire_struct = build_tire_struct(CONFIG)
 使用示例：
 
 ```python
-# 方式一：直接用（e2e 测试、快速验证）
-from example.ref_configs import cfg_5rib_sym0_no_cont
+# 方式一：测试直接用（不可被用户修改的版本受控副本）
+from tests.datasets.ref_configs import cfg_5rib_sym0_no_cont
 from src.piplines.pipline1 import run_pipeline1
 run_pipeline1(cfg_5rib_sym0_no_cont.tire_struct)
 
-# 方式二：先修改再使用（自定义参数）
+# 方式二：用户参考后修改（基于 example/ 下的展示副本）
 from example.ref_configs import cfg_5rib_sym0_no_cont
-from src.config._builder import build_tire_struct
-
-CONFIG = cfg_5rib_sym0_no_cont.CONFIG
-
+import copy
+CONFIG = copy.deepcopy(cfg_5rib_sym0_no_cont.CONFIG)
 CONFIG["scheme_rank"] = 2                # 换一个方案
 CONFIG["small_images"][0]["image_base64"] = load_image_to_base64(
     Path("/data/my_rib1.png"), with_prefix=True
 )                                              # 换图片
+from src.config._builder import build_tire_struct
 my_struct = build_tire_struct(CONFIG)
 run_pipeline1(my_struct)
+
+> **两份配置的关系**：
+> - `example/ref_configs/` — 展示用，用户可以随意修改以实验
+> - `tests/datasets/ref_configs/` — 测试用，版本受控，每次新提交都会被测试到，防止改坏
+> - 两份内容相同，但互不影响
 ```
 
 ---
@@ -440,27 +444,27 @@ from src.models.enums import DecorationPositionEnum
 ### 6.1 新增文件
 
 ```
-example/
+example/ref_configs/                         # 展示用副本，用户可随意修改
 ├── __init__.py
-└── ref_configs/
-    ├── __init__.py                          # 用 importlib 暴露 cfg_xxx 前缀的模块名
-    ├── 5rib_sym0_no_cont.py                 # 1.1
-    ├── 5rib_sym1_no_cont.py                 # 1.2
-    ├── 5rib_sym2_no_cont.py                 # 1.3
-    ├── 5rib_sym0_cont1.py                   # 1.4
-    ├── 5rib_sym1_cont1.py                   # 1.5
-    ├── 5rib_sym2_cont2.py                   # 1.6
-    ├── 4rib_sym4_no_cont.py                 # 1.7
-    ├── 4rib_sym4_sym5_no_cont.py            # 1.8
-    ├── 4rib_sym456_no_cont.py               # 1.9
-    ├── 4rib_sym456_cont3.py                 # 1.10
-    └── 4rib_sym456_cont123_bad.py           # 1.11 反例
+├── 5rib_sym0_no_cont.py
+├── 5rib_sym1_no_cont.py
+├── 5rib_sym2_no_cont.py
+├── 5rib_sym0_cont1.py
+├── 5rib_sym1_cont1.py
+├── 5rib_sym2_cont2.py
+├── 4rib_sym4_no_cont.py
+├── 4rib_sym4_sym5_no_cont.py
+├── 4rib_sym456_no_cont.py
+├── 4rib_sym456_cont3.py
+└── 4rib_sym456_cont123_bad.py
+
+tests/datasets/ref_configs/                  # 测试用副本，版本受控，每次提交都被测试
+├── __init__.py
+├── 5rib_sym0_no_cont.py
+├── ... (同上 11 个文件)
 
 src/config/
 └── _builder.py                              # 共享 dict→TireStruct 构建器
-
-tests/datasets/
-└── ref_configs -> ../../example/ref_configs  # 软链接，方便从数据集目录访问
 ```
 
 ### 6.2 修改现有文件
@@ -478,7 +482,7 @@ tests/datasets/
 
 | # | 验收项 | 验证方式 |
 |---|---|---|
-| 1 | 每个配置文件的 `tire_struct` 可成功构造，不抛异常 | 在测试中 `from example.ref_configs import cfg_xxx; cfg_xxx.tire_struct` |
+| 1 | 每个配置文件的 `tire_struct` 可成功构造，不抛异常 | 在测试中 `from tests.datasets.ref_configs import cfg_xxx; cfg_xxx.tire_struct` |
 | 2 | `tire_struct` 可直接传给 `run_pipeline1()` 运行 | 1.1-1.10 通过 pipeline1 完整执行 |
 | 3 | 1.11 不导致 pipeline1 崩溃 | 运行不抛异常，continuity_1/2 被静默忽略 |
 | 4 | 预期方案名与实际 pipeline1 输出一致 | 检查 `tire_struct.big_image.lineage.stitching_scheme.stitching_scheme_abstract.name` |
