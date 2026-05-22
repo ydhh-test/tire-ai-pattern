@@ -16,7 +16,7 @@
 
 from typing import Optional, List, Dict, Type
 from pydantic import BaseModel, Field
-from .enums import RuleTypeEnum
+from .enums import RuleTypeEnum, DecorationPositionEnum
 
 from src.models.enums import RegionEnum
 
@@ -763,7 +763,7 @@ class GrooveSizeItem(BaseModel):
 
 class DecorationItem(BaseModel):
     """单个装饰的尺寸与透明度配置"""
-    position: str = Field(description="装饰位置：left / right")
+    position: DecorationPositionEnum = Field(description="装饰位置：left / right")
     decoration_width: int = Field(ge=1, description="装饰宽度(像素)")
     decoration_height: int = Field(ge=1, description="装饰高度(像素)")
     decoration_opacity: int = Field(ge=0, le=255, description="装饰透明度(0-255)")

@@ -49,6 +49,12 @@ class ImageFormatEnum(str, Enum):
     RAW = "raw"  # 原始数据
 
 
+class DecorationPositionEnum(str, Enum):
+    """装饰位置枚举"""
+    LEFT = "left"    # 左侧装饰
+    RIGHT = "right"  # 右侧装饰
+
+
 class StitchingSchemeName(str, Enum):
     """拼接方案名称枚举"""
     SYMMETRY_0 = "symmetry_0"          # 无对称
