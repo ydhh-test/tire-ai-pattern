@@ -1,0 +1,109 @@
+name: Notify Feishu
+
+on:
+  issues:
+    types: [opened, closed]
+  pull_request:
+    types: [opened, closed]
+    branches: [dev2, dev, main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and send message
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          REPO: ${{ github.repository }}
+          WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          NOTIFY_ME: ${{ vars.FEISHU_NOTIFY_ME }}
+        run: |
+          SKIP=true
+
+          resolve_at() {
+            local github_user="$1"
+            [ -z "$github_user" ] && return
+            local feishu_id
+            feishu_id=$(jq -r ".\"$github_user\" // empty" .github/feishu-users.json)
+            if [ -n "$feishu_id" ]; then
+              echo "<at id=$feishu_id></at>"
+            else
+              echo "@$github_user"
+            fi
+          }
+
+          # Parse event data from GitHub event file
+          if [ "$EVENT_NAME" = "issues" ]; then
+            ISSUE_TITLE=$(jq -r '.issue.title' "$GITHUB_EVENT_PATH")
+            ISSUE_URL=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH")
+            ISSUE_USER=$(jq -r '.issue.user.login' "$GITHUB_EVENT_PATH")
+            SENDER=$(jq -r '.sender.login' "$GITHUB_EVENT_PATH")
+          fi
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            PR_TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+            PR_URL=$(jq -r '.pull_request.html_url' "$GITHUB_EVENT_PATH")
+            PR_USER=$(jq -r '.pull_request.user.login' "$GITHUB_EVENT_PATH")
+            PR_HEAD=$(jq -r '.pull_request.head.ref' "$GITHUB_EVENT_PATH")
+            PR_BASE=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
+            PR_MERGED=$(jq -r '.pull_request.merged // false' "$GITHUB_EVENT_PATH")
+            PR_MERGED_BY=$(jq -r '.pull_request.merged_by.login // ""' "$GITHUB_EVENT_PATH")
+          fi
+
+          if [ "$EVENT_NAME" = "issues" ] && [ "$EVENT_ACTION" = "opened" ]; then
+            SKIP=false
+            TITLE="📝 新 Issue: ${ISSUE_TITLE}"
+            BODY="仓库: **${REPO}**  \n作者: ${ISSUE_USER}  \n[查看详情](${ISSUE_URL})"
+
+          elif [ "$EVENT_NAME" = "issues" ] && [ "$EVENT_ACTION" = "closed" ]; then
+            SKIP=false
+            TITLE="✅ Issue 已关闭: ${ISSUE_TITLE}"
+            BODY="仓库: **${REPO}**  \n关闭者: ${SENDER}  \n[查看详情](${ISSUE_URL})"
+
+          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "opened" ]; then
+            SKIP=false
+            TITLE="🔀 新 PR: ${PR_TITLE}"
+            BODY="仓库: **${REPO}**  \n作者: ${PR_USER}  \n分支: ${PR_HEAD} → ${PR_BASE}  \n[查看详情](${PR_URL})"
+            AT_ME=$(resolve_at "${NOTIFY_ME}")
+            if [ -n "$AT_ME" ]; then
+              BODY="${BODY}  \n${AT_ME}"
+            fi
+
+          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "closed" ] && [ "$PR_MERGED" = "true" ]; then
+            SKIP=false
+            AT_PR_AUTHOR=$(resolve_at "${PR_USER}")
+            TITLE="🎉 PR 已合并: ${PR_TITLE}"
+            BODY="仓库: **${REPO}**  \n合并者: ${PR_MERGED_BY}  \n[查看详情](${PR_URL})  \n${AT_PR_AUTHOR}"
+          fi
+
+          if [ "$SKIP" = "true" ]; then
+            echo "Event not tracked, skipping."
+            exit 0
+          fi
+
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK secret not configured, skipping."
+            exit 0
+          fi
+
+          # Escape for JSON
+          TITLE_JSON=$(echo "$TITLE" | jq -Rs '.')
+          BODY_JSON=$(echo "$BODY" | jq -Rs '.')
+
+          curl -sS -X POST "$WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{
+            \"msg_type\": \"interactive\",
+            \"card\": {
+              \"header\": {
+                \"title\": { \"content\": $TITLE_JSON, \"tag\": \"plain_text\" },
+                \"template\": \"blue\"
+              },
+              \"elements\": [
+                { \"tag\": \"markdown\", \"content\": $BODY_JSON }
+              ]
+            }
+          }"
