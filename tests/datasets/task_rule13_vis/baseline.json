@@ -2,6 +2,8 @@
   "cases": [
     {
       "image_path": "combine_horizontal/sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "left_decoration_px": 0,
+      "right_decoration_px": 0,
       "feature": {
         "vis_names": null,
         "vis_images": null,
@@ -13,6 +15,8 @@
     },
     {
       "image_path": "combine_horizontal/sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png",
+      "left_decoration_px": 0,
+      "right_decoration_px": 0,
       "feature": {
         "vis_names": null,
         "vis_images": null,
@@ -24,10 +28,64 @@
     },
     {
       "image_path": "combine_horizontal/sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "left_decoration_px": 0,
+      "right_decoration_px": 0,
       "feature": {
         "vis_names": null,
         "vis_images": null,
         "land_ratio": 25.25
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "combine_horizontal/sym_0_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "left_decoration_px": 60,
+      "right_decoration_px": 60,
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 24.7
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "combine_horizontal/sym_1_r1_0_r2_0_r3_1_r4_0_r5_0.png",
+      "left_decoration_px": 60,
+      "right_decoration_px": 60,
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 23.25
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "combine_horizontal/sym_3_r1_0_r2_0_r3_0_r4_0_r5_0.png",
+      "left_decoration_px": 60,
+      "right_decoration_px": 60,
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 24.21
+      },
+      "score": {
+        "score": 0
+      }
+    },
+    {
+      "image_path": "correct_black_decoration.png",
+      "left_decoration_px": 300,
+      "right_decoration_px": 300,
+      "feature": {
+        "vis_names": null,
+        "vis_images": null,
+        "land_ratio": 26.34
       },
       "score": {
         "score": 0
