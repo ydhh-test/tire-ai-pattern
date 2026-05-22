@@ -5,7 +5,7 @@
 
 | 属性 | 值 |
 |------|-----|
-| **适用模块** | `src/nodes/single_image_splitter.py` |
+| **适用模块** | `src/processing/single_image_splitter.py` |
 | **目标读者** | PM、架构师、开发工程师、测试工程师 |
 
 ---
@@ -52,7 +52,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              single_image_splitter.py                    │
+│              processing/single_image_splitter.py          │
 │              (流程编排与主入口)                           │
 ├──────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
@@ -71,7 +71,7 @@
 
 | 文件 | 职责 | 核心功能 |
 |------|------|----------|
-| `single_image_splitter.py` | 流程编排主入口 | 调用各算法模块，组织完整处理流程 |
+| `processing/single_image_splitter.py` | 流程编排主入口 | 调用各算法模块，组织完整处理流程 |
 | `split/cropping.py` | 裁剪与切分算法 | 纵向切分、边缘清理、横向切分 |
 | `split/analysis.py` | 图像分析与检测 | 主色调分析、竖直线去除、异常检测 |
 | `split/validation.py` | 配置参数校验 | 参数合法性验证 |
@@ -79,7 +79,7 @@
 ### 3.3 依赖关系
 
 ```
-single_image_splitter.py
+processing/single_image_splitter.py
     ├── core.split.cropping
     │   ├── remove_black_and_split_segments
     │   ├── remove_side_white
