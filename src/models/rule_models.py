@@ -778,18 +778,21 @@ class Rule100Config(BaseRuleConfig):
     description: str = "RIB 节距与尺寸配置"
     rib_number: int = Field(ge=1, description="RIB 数量")
     rib_sizes: List[RibSizeItem] = Field(min_length=1, description="每个RIB的尺寸配置列表")
+    rule_type: RuleTypeEnum = RuleTypeEnum.PROCESSING
 
 
 class Rule101Config(BaseRuleConfig):
     """Rule101：主沟尺寸配置"""
     description: str = "主沟尺寸配置"
     groove_sizes: List[GrooveSizeItem] = Field(min_length=1, description="每个主沟的尺寸配置列表")
+    rule_type: RuleTypeEnum = RuleTypeEnum.PROCESSING
 
 
 class Rule102Config(BaseRuleConfig):
     """Rule102：装饰边框配置"""
     description: str = "装饰边框尺寸与透明度配置"
     decorations: List[DecorationItem] = Field(min_length=1, description="左右装饰配置列表")
+    rule_type: RuleTypeEnum = RuleTypeEnum.PROCESSING
 
 
 @register_rule_feature

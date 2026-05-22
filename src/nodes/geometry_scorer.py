@@ -151,7 +151,7 @@ def _calculate_geometric_scores(
     # 步骤6: 归一化计算总分
     all_scores = {**big_image_scores, **small_image_scores, **default_scores}
     total_score, max_possible_score, effective_rule_count = _calculate_normalized_score(
-        all_scores, rules_config
+        all_scores, big_image_rules + small_image_rules + default_rules
     )
 
     # 步骤7: 组装结果
