@@ -1,11 +1,12 @@
-"""Splitting pipeline entrypoint placeholders."""
+"""Splitting pipeline entrypoint."""
 
 from __future__ import annotations
 
-from typing import Any
+from src.models.tire_struct import TireStruct
+from src.piplines.pipline4 import run_pipeline4
 
 
-def run_splitting_pipeline(input_data: Any, rules_config: Any | None = None) -> Any:
+def run_splitting_pipeline(input_data: TireStruct) -> TireStruct:
     """Run the splitting pipeline through node-level orchestration."""
 
-    raise NotImplementedError("Splitting pipeline placeholder is not implemented yet.")
+    return run_pipeline4(input_data)

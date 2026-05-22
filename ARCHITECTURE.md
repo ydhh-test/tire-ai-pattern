@@ -105,6 +105,8 @@ tire-ai-pattern/
 │   │   ├── big_image_evaluator.py    # 节点-4：大图评估
 │   │   ├── geometry_scorer.py        # 节点-5：几何合理性业务评分
 │   │   └── big_image_splitter.py     # 节点-6：大图拆分
+│   │
+│   ├── processing/                    # 流程支撑处理模块
 │   │   └── single_image_splitter.py  # 单图拆分流水线，用于实现节点-6：大图拆分
 │   │
 │   ├── rules/                         # 业务规则层，包含特征规则与评分规则

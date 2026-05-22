@@ -12,7 +12,7 @@ from PIL import Image
 
 from src.utils.logger import get_logger
 
-from src.nodes.single_image_splitter import process_single_file, DEFAULT_CONFIG
+from src.processing.single_image_splitter import process_single_file, DEFAULT_CONFIG
 
 logger = get_logger(__name__)
 

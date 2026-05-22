@@ -1,7 +1,7 @@
 """Pipeline-1 orchestration.
 
-Current scope: run Node1 only, evaluating input small images and writing each
-``SmallImage.evaluation`` back into the shared ``TireStruct``.
+Pipeline-1 evaluates input small images, generates and stitches the big image,
+then evaluates and scores the resulting big image in the shared ``TireStruct``.
 """
 
 from __future__ import annotations
@@ -10,6 +10,9 @@ from src.common.exceptions import InputTypeError
 from src.models.tire_struct import TireStruct
 from src.nodes.small_image_evaluator import evaluate_small_images
 from src.nodes.stitch_scheme_generator import generate_stitch_scheme
+from src.nodes.big_image_stitcher import stitch_big_image
+from src.nodes.big_image_evaluator import evaluate_big_image
+from src.nodes.geometry_scorer import calculate_geometric_scores
 from src.rules.executors import load_all_executors
 from src.utils.logger import get_logger
 
@@ -65,6 +68,28 @@ def run_pipeline1(tire_struct: TireStruct) -> TireStruct:
             tire_struct.small_images,
             tire_struct.rules_config,
             tire_struct.scheme_rank
+        )
+
+        STEP = '拼接大图'
+
+        stitch_big_image(
+            tire_struct.big_image
+        )
+
+        STEP = '大图评估'
+
+        evaluate_big_image(
+            tire_struct.big_image,
+            tire_struct.rules_config,
+            is_debug=tire_struct.is_debug,
+        )
+
+        STEP = '大图打分'
+
+        calculate_geometric_scores(
+            tire_struct.big_image,
+            tire_struct.small_images,
+            tire_struct.rules_config,
         )
 
     except Exception as exc:

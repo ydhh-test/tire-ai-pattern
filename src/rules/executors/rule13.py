@@ -30,9 +30,50 @@ class Rule13Executor(RuleExecutor):
         if not isinstance(is_debug, bool):
             raise InputTypeError(FEATURE_FUNCTION, "is_debug", "bool", type(is_debug).__name__)
 
+        # Rule13 海陆比只对红框区域计算，需要剔除拼接时叠加的左右装饰灰边。
+        # 装饰宽度来自 BigImage.lineage.decoration_scheme，由
+        # src/nodes/stitch_scheme_generator.py::_instantiate_decoration_scheme
+        # 在大图生成时按 Rule102Config.decorations 顺序写入，约定为 [left, right]。
+        if image.lineage is None:
+            raise InputDataError(
+                "BigImage",
+                "lineage",
+                "must not be None for Rule13",
+            )
+        decoration_scheme = image.lineage.decoration_scheme
+        decorations = decoration_scheme.decoration_implementation
+        if len(decorations) != 2:
+            raise InputDataError(
+                "BigImage",
+                "lineage.decoration_scheme.decoration_implementation",
+                "must contain exactly 2 items in [left, right] order",
+                len(decorations),
+            )
+
+        left_width = decorations[0].decoration_width
+        right_width = decorations[1].decoration_width
+        if left_width < 0 or right_width < 0:
+            raise InputDataError(
+                "BigImage",
+                "lineage.decoration_scheme.decoration_implementation",
+                "decoration_width must be >= 0",
+                (left_width, right_width),
+            )
+
         image_array = base64_to_ndarray(image.image_base64)
+        image_width = image_array.shape[1]
+        if left_width + right_width >= image_width:
+            raise InputDataError(
+                "BigImage",
+                "lineage.decoration_scheme.decoration_implementation",
+                "left + right decoration_width must be less than image width",
+                (left_width, right_width, image_width),
+            )
+
+        cropped_image = image_array[:, left_width : image_width - right_width, :]
+
         ratio_percent, vis_name, vis_image = compute_land_sea_ratio(
-            image_array,
+            cropped_image,
             is_debug=is_debug,
         )
 

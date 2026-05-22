@@ -11,7 +11,7 @@ from src.rules.registry import register_rule_executor
 class Rule1Executor(RuleExecutor):
     rule_cls = Rule1Config
 
-    def exec_feature(self, image: BaseImage, config: Rule1Config) -> Rule1Feature:
+    def exec_feature(self, image: BaseImage, config: Rule1Config, is_debug: bool = False,) -> Rule1Feature:
         """根据血缘中的 StitchingSchemeName 判断是否匹配无对称方案"""
         if not isinstance(image, BigImage) or image.lineage is None:
             return Rule1Feature(is_active=False)

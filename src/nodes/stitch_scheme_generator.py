@@ -11,7 +11,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 from src.common.exceptions import InputDataError
-from src.models.enums import RibOperation, SourceTypeEnum, StitchingSchemeName
+from src.models.enums import ContinuityModeName, RibOperation, SourceTypeEnum, StitchingSchemeName
 
 from src.models.image_models import (
     ImageLineage,
@@ -44,6 +44,9 @@ from src.utils.logger import get_logger
 
 
 logger = get_logger('拼接方案')
+
+
+_DEFAULT_CONTINUITY_MODE_NAME = ContinuityModeName.CONTINUITY_0
 
 
 class _CandidateScheme(BaseModel):
@@ -87,8 +90,8 @@ class _CandidateScheme(BaseModel):
         )
         tie_breaker = hashlib.sha256(
             (
-                f"{ordered_hashes}|{self.template.symmetry_template.name}|"
-                f"{self.template.continuity_template.name}"
+                f"{ordered_hashes}|{self.template.symmetry_template.name.value}|"
+                f"{self.template.continuity_template.name.value}"
             ).encode("utf-8")
         ).hexdigest()
         return (-self.total_score, tie_breaker)
@@ -152,14 +155,33 @@ def _filter_templates(
         and template.rib_number == target_rib_number
         and bool(set(template.matching_rule_names) & enabled_rule_names)
     ]
+    enabled_continuity_names = _enabled_continuity_mode_names(configs)
     continuity_templates = [
         template
         for template in templates
         if template.mode == "continuity"
         and template.rib_number == target_rib_number
+        and template.name in enabled_continuity_names
     ]
 
     return symmetry_templates, continuity_templates
+
+
+def _enabled_continuity_mode_names(
+    configs: Sequence[BaseRuleConfig],
+) -> set[ContinuityModeName]:
+    enabled_names: set[ContinuityModeName] = set()
+    for config in configs:
+        continuity_mode_list = getattr(config, "continuity_mode_list", None)
+        if continuity_mode_list:
+            enabled_names.update(continuity_mode_list)
+    return enabled_names or {_DEFAULT_CONTINUITY_MODE_NAME}
+
+
+def _continuity_mode_names_log_display(
+    continuity_mode_names: set[ContinuityModeName],
+) -> str:
+    return ", ".join(sorted(name.value for name in continuity_mode_names))
 
 
 def _combine_templates(
@@ -775,6 +797,11 @@ def generate_stitch_scheme(
     )
 
     logger.info('符合配置: [%s]', ', '.join([f'{conf.__class__.__name__}[{conf.description}]' for conf in configs]))
+    enabled_continuity_names = _enabled_continuity_mode_names(configs)
+    logger.info(
+        "连续性配置: continuity_mode_list=[%s]",
+        _continuity_mode_names_log_display(enabled_continuity_names),
+    )
 
     symmetry_templates, continuity_templates = _filter_templates(
         templates,

@@ -1,122 +1,51 @@
 """几何评分节点。
 
-本节点基于大图中已存在的规则 feature 重新计算规则得分，并刷新图片
-总分。它适用于用户调整 ``rules_config`` 中的阈值或参数后，复用已有
-feature 重新评分的场景。
+本节点基于大图评估结果、小图评估结果和大图血缘信息，计算几何合理性
+合规总分，并写回 ``BigImage.scores``。
 """
 
 from __future__ import annotations
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Sequence
 
 from src.common.exceptions import InputDataError
 from src.models.enums import RuleTypeEnum
 from src.models.image_models import BigImage, SmallImage, ImageLineage, ImageScore
 from src.models.rule_models import BaseRuleConfig
-from src.models.tire_struct import TireStruct
-from src.nodes.base import GEOMETRY_SCORER_CONFIGS, RuleRunner, recalculate_current_score, select_node_configs
+from src.nodes.base import (
+    BIG_IMAGE_EVALUATOR_CONFIGS,
+    DEFAULT_RULE_CONFIGS,
+    SMALL_IMAGE_EVALUATOR_CONFIGS,
+    select_node_configs,
+)
 
 
 NODE_NAME = "geometry_scorer"
 
 
-def score_geometry(
-    big_image: BigImage | None,
-    rules_config: list[BaseRuleConfig],
-    recalculate_rule_scores: bool = True,
-) -> BigImage:
-    """基于已有 feature 重新计算规则得分并刷新总分。
-
-    当 ``recalculate_rule_scores`` 为 ``True`` 时，函数会从
-    ``rules_config`` 中筛选本节点支持的规则配置，逐条找到大图
-    ``evaluation`` 中对应的 ``RuleEvaluation``，使用已有 feature 重新
-    计算 score，并同步更新该 ``RuleEvaluation`` 的 config 和 score。
-
-    当 ``recalculate_rule_scores`` 为 ``False`` 时，函数不会重新计算
-    每条规则的 score，只会根据已有 score 汇总刷新 ``current_score``。
-
-    Args:
-        big_image: 已完成大图 feature 计算的大图对象。不能为 ``None``，
-            且必须已经存在 ``evaluation``。
-        rules_config: 用户传入的完整规则配置列表，函数只会处理本节点
-            支持的规则配置。
-        recalculate_rule_scores: 是否逐条重新计算规则得分。默认为
-            ``True``；传入 ``False`` 时只刷新总分。
-
-    Returns:
-        原始 ``big_image`` 对象。函数会原地更新其中的 ``RuleEvaluation``
-        和 ``evaluation.current_score``。
-
-    Raises:
-        InputDataError: 当 ``big_image``、``big_image.evaluation``、目标
-            ``RuleEvaluation`` 或目标 feature 缺失时抛出；规则配置重复
-            时也会抛出该异常。
-        Exception: 规则执行过程中的异常不会在节点内捕获，会原样向上透传。
-    """
-
-    if big_image is None:
-        raise InputDataError(NODE_NAME, "big_image", "big_image is required")
-    if big_image.evaluation is None:
-        raise InputDataError(
-            NODE_NAME,
-            "big_image.evaluation",
-            "big_image.evaluation is required",
-        )
-
-    evaluation = big_image.evaluation
-
-    if recalculate_rule_scores:
-        configs = select_node_configs(
-            rules_config,
-            GEOMETRY_SCORER_CONFIGS,
-        )
-
-        for config in configs:
-            rule_evaluation = evaluation.get_rule(config.name)
-            if rule_evaluation is None:
-                raise InputDataError(
-                    NODE_NAME,
-                    f"big_image.evaluation.rules.{config.name}",
-                    f"missing rule evaluation for {config.name}",
-                )
-            if rule_evaluation.feature is None:
-                raise InputDataError(
-                    NODE_NAME,
-                    f"big_image.evaluation.rules.{config.name}.feature",
-                    f"missing feature for {config.name}",
-                )
-
-            rule_evaluation.config = config
-            rule_evaluation.score = RuleRunner.exec_score(config, rule_evaluation.feature)
-
-    recalculate_current_score(evaluation)
-    return big_image
-
-
 def calculate_geometric_scores(
-    tire_struct: TireStruct,
-) -> TireStruct:
+    big_image: BigImage,
+    small_images: Sequence[SmallImage],
+    rules_config: Sequence[BaseRuleConfig],
+) -> BigImage:
     """
-    几何合理性业务评分封装函数（类实现），主函数
+    几何合理性业务评分封装函数（节点层接口）
 
-    输入为 TireStruct，输出为 TireStruct，自动从 TireStruct 中提取参数并调用核心评分函数。
+    输入为大图、小图列表和规则配置，输出为更新评分后的大图。
 
     Args:
-        tire_struct: 包含大图、小图、血缘信息和规则配置的 TireStruct 对象
+        big_image: 已完成 feature 计算的大图对象
+        small_images: 小图列表，包含各小图的 evaluation 字段
+        rules_config: 规则配置列表，定义各规则的 max_score
 
     Returns:
-        TireStruct: 处理后的 TireStruct，big_image.scores.compliance 已更新
+        BigImage: 更新评分后的大图对象，big_image.scores.compliance 已更新
 
     Raises:
         InputDataError: 当必要参数缺失时抛出
     """
     # ========== 最外层参数校验（统一入口） ==========
 
-    # 校验 tire_struct
-    if tire_struct is None:
-        raise InputDataError(NODE_NAME, "tire_struct", "tire_struct is required")
-
     # 校验 big_image
-    big_image = tire_struct.big_image
     if big_image is None:
         raise InputDataError(NODE_NAME, "big_image", "big_image is required")
 
@@ -132,10 +61,6 @@ def calculate_geometric_scores(
     lineage = big_image.lineage
     if lineage is None:
         raise InputDataError(NODE_NAME, "big_image.lineage", "big_image.lineage is required")
-
-    # ========== 参数提取 ==========
-    small_images = tire_struct.small_images
-    rules_config = tire_struct.rules_config
 
     # ========== 调用核心评分函数 ==========
     score_result = _calculate_geometric_scores(
@@ -159,7 +84,7 @@ def calculate_geometric_scores(
     if not compliance_score_exists:
         big_image.scores.append(ImageScore(compliance=score_result['total_score']))
 
-    return tire_struct
+    return big_image
 
 
 def _calculate_geometric_scores(
@@ -191,8 +116,10 @@ def _calculate_geometric_scores(
         }
     """
 
-    # 步骤1: 规则分类（基于现有 GEOMETRY_SCORER_CONFIGS）
-    big_image_rules, small_image_rules, default_rules = _classify_rules(rules_config)
+    # 步骤1: 规则分类
+    big_image_rules = select_node_configs(rules_config, BIG_IMAGE_EVALUATOR_CONFIGS)
+    small_image_rules = select_node_configs(rules_config, SMALL_IMAGE_EVALUATOR_CONFIGS)
+    default_rules = select_node_configs(rules_config, DEFAULT_RULE_CONFIGS)
 
     # 步骤2: 从血缘中筛选参与计算的小图
     used_before_images = _extract_used_small_image_regions(lineage)
@@ -224,7 +151,7 @@ def _calculate_geometric_scores(
     # 步骤6: 归一化计算总分
     all_scores = {**big_image_scores, **small_image_scores, **default_scores}
     total_score, max_possible_score, effective_rule_count = _calculate_normalized_score(
-        all_scores, rules_config
+        all_scores, big_image_rules + small_image_rules + default_rules
     )
 
     # 步骤7: 组装结果
@@ -255,33 +182,6 @@ def _extract_used_small_image_regions(lineage: ImageLineage) -> list[str]:
                 used_images.append(rib_impl.before_image)
 
     return used_images
-
-
-def _classify_rules(
-    rules_config: List[BaseRuleConfig],
-) -> Tuple[List[BaseRuleConfig], List[BaseRuleConfig], List[BaseRuleConfig]]:
-    """
-    规则分类：区分大图规则、小图规则和默认规则
-
-    直接使用配置对象的 rule_type 属性进行分类。
-
-    Returns:
-        Tuple: (大图规则列表, 小图规则列表, 默认规则列表)
-    """
-    big_image_rules = []
-    small_image_rules = []
-    default_rules = []
-
-    for config in rules_config:
-        rule_type = config.rule_type
-        if rule_type == RuleTypeEnum.SMALL_IMAGE:
-            small_image_rules.append(config)
-        elif rule_type == RuleTypeEnum.DEFAULT:
-            default_rules.append(config)
-        elif rule_type == RuleTypeEnum.BIG_IMAGE:
-            big_image_rules.append(config)
-
-    return big_image_rules, small_image_rules, default_rules
 
 
 def _extract_big_image_scores(
