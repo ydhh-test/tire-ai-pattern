@@ -12,16 +12,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build message
-        id: build
+      - name: Build and send message
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          REPO: ${{ github.repository }}
+          WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          NOTIFY_ME: ${{ vars.FEISHU_NOTIFY_ME }}
         run: |
-          EVENT="${{ github.event_name }}"
-          ACTION="${{ github.event.action }}"
-
           SKIP=true
 
           resolve_at() {
             local github_user="$1"
+            [ -z "$github_user" ] && return
             local feishu_id
             feishu_id=$(jq -r ".\"$github_user\" // empty" .github/feishu-users.json)
             if [ -n "$feishu_id" ]; then
@@ -31,59 +34,75 @@ jobs:
             fi
           }
 
-          if [ "$EVENT" = "issues" ] && [ "$ACTION" = "opened" ]; then
-            SKIP=false
-            TITLE="📝 新 Issue: ${{ github.event.issue.title }}"
-            BODY="仓库: **${{ github.repository }}**  \n作者: ${{ github.event.issue.user.login }}  \n[查看详情](${{ github.event.issue.html_url }})"
-
-          elif [ "$EVENT" = "issues" ] && [ "$ACTION" = "closed" ]; then
-            SKIP=false
-            TITLE="✅ Issue 已关闭: ${{ github.event.issue.title }}"
-            BODY="仓库: **${{ github.repository }}**  \n关闭者: ${{ github.event.sender.login }}  \n[查看详情](${{ github.event.issue.html_url }})"
-
-          elif [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "opened" ]; then
-            SKIP=false
-            TITLE="🔀 新 PR: ${{ github.event.pull_request.title }}"
-            BODY="仓库: **${{ github.repository }}**  \n作者: ${{ github.event.pull_request.user.login }}  \n分支: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}  \n[查看详情](${{ github.event.pull_request.html_url }})"
-            # @ me: 从映射文件解析 notify-me 的 GitHub 用户 → 飞书 ID
-            AT_ME=$(resolve_at "${{ vars.FEISHU_NOTIFY_ME }}")
-            if [ -n "$AT_ME" ]; then
-              BODY="$BODY  \n$AT_ME"
-            fi
-
-          elif [ "$EVENT" = "pull_request" ] && [ "$ACTION" = "closed" ] && [ "${{ github.event.pull_request.merged }}" = "true" ]; then
-            SKIP=false
-            PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-            AT_PR_AUTHOR=$(resolve_at "$PR_AUTHOR")
-            TITLE="🎉 PR 已合并: ${{ github.event.pull_request.title }}"
-            BODY="仓库: **${{ github.repository }}**  \n合并者: ${{ github.event.pull_request.merged_by.login }}  \n[查看详情](${{ github.event.pull_request.html_url }})  \n$AT_PR_AUTHOR"
+          # Parse event data from GitHub event file
+          if [ "$EVENT_NAME" = "issues" ]; then
+            ISSUE_TITLE=$(jq -r '.issue.title' "$GITHUB_EVENT_PATH")
+            ISSUE_URL=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH")
+            ISSUE_USER=$(jq -r '.issue.user.login' "$GITHUB_EVENT_PATH")
+            SENDER=$(jq -r '.sender.login' "$GITHUB_EVENT_PATH")
           fi
 
-          echo "skip=$SKIP" >> $GITHUB_OUTPUT
-          echo "title=$TITLE" >> $GITHUB_OUTPUT
-          # Use delimiter for multiline output
-          {
-            echo "body<<BODY_EOF"
-            echo -e "$BODY"
-            echo "BODY_EOF"
-          } >> $GITHUB_OUTPUT
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            PR_TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+            PR_URL=$(jq -r '.pull_request.html_url' "$GITHUB_EVENT_PATH")
+            PR_USER=$(jq -r '.pull_request.user.login' "$GITHUB_EVENT_PATH")
+            PR_HEAD=$(jq -r '.pull_request.head.ref' "$GITHUB_EVENT_PATH")
+            PR_BASE=$(jq -r '.pull_request.base.ref' "$GITHUB_EVENT_PATH")
+            PR_MERGED=$(jq -r '.pull_request.merged // false' "$GITHUB_EVENT_PATH")
+            PR_MERGED_BY=$(jq -r '.pull_request.merged_by.login // ""' "$GITHUB_EVENT_PATH")
+          fi
 
-      - name: Send to Feishu
-        if: steps.build.outputs.skip != 'true'
-        env:
-          WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-        run: |
-          curl -X POST "$WEBHOOK" \
+          if [ "$EVENT_NAME" = "issues" ] && [ "$EVENT_ACTION" = "opened" ]; then
+            SKIP=false
+            TITLE="📝 新 Issue: ${ISSUE_TITLE}"
+            BODY="仓库: **${REPO}**  \n作者: ${ISSUE_USER}  \n[查看详情](${ISSUE_URL})"
+
+          elif [ "$EVENT_NAME" = "issues" ] && [ "$EVENT_ACTION" = "closed" ]; then
+            SKIP=false
+            TITLE="✅ Issue 已关闭: ${ISSUE_TITLE}"
+            BODY="仓库: **${REPO}**  \n关闭者: ${SENDER}  \n[查看详情](${ISSUE_URL})"
+
+          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "opened" ]; then
+            SKIP=false
+            TITLE="🔀 新 PR: ${PR_TITLE}"
+            BODY="仓库: **${REPO}**  \n作者: ${PR_USER}  \n分支: ${PR_HEAD} → ${PR_BASE}  \n[查看详情](${PR_URL})"
+            AT_ME=$(resolve_at "${NOTIFY_ME}")
+            if [ -n "$AT_ME" ]; then
+              BODY="${BODY}  \n${AT_ME}"
+            fi
+
+          elif [ "$EVENT_NAME" = "pull_request" ] && [ "$EVENT_ACTION" = "closed" ] && [ "$PR_MERGED" = "true" ]; then
+            SKIP=false
+            AT_PR_AUTHOR=$(resolve_at "${PR_USER}")
+            TITLE="🎉 PR 已合并: ${PR_TITLE}"
+            BODY="仓库: **${REPO}**  \n合并者: ${PR_MERGED_BY}  \n[查看详情](${PR_URL})  \n${AT_PR_AUTHOR}"
+          fi
+
+          if [ "$SKIP" = "true" ]; then
+            echo "Event not tracked, skipping."
+            exit 0
+          fi
+
+          if [ -z "$WEBHOOK" ]; then
+            echo "FEISHU_WEBHOOK secret not configured, skipping."
+            exit 0
+          fi
+
+          # Escape for JSON
+          TITLE_JSON=$(echo "$TITLE" | jq -Rs '.')
+          BODY_JSON=$(echo "$BODY" | jq -Rs '.')
+
+          curl -sS -X POST "$WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "{
             \"msg_type\": \"interactive\",
             \"card\": {
               \"header\": {
-                \"title\": { \"content\": \"${{ steps.build.outputs.title }}\", \"tag\": \"plain_text\" },
+                \"title\": { \"content\": $TITLE_JSON, \"tag\": \"plain_text\" },
                 \"template\": \"blue\"
               },
               \"elements\": [
-                { \"tag\": \"markdown\", \"content\": \"${{ steps.build.outputs.body }}\" }
+                { \"tag\": \"markdown\", \"content\": $BODY_JSON }
               ]
             }
           }"
